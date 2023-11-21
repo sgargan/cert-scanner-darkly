@@ -44,39 +44,38 @@ func (t *PodTests) TestDiscoversValidPods() {
 	podDiscovery, err := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, t.Build())
 	t.NoError(err)
 
-	candidates, err := podDiscovery.Discover(context.Background())
+	targets := make(chan *Target, 2)
+	err = podDiscovery.Discover(context.Background(), targets)
 	t.NoError(err)
-	t.Equal(2, len(candidates))
-	t.Equal([]*Target{
-		{
-			Metadata: Metadata{
-				Name:       "some-pod",
-				Source:     "some-cluster",
-				SourceType: "kubernetes",
-				Labels: map[string]string{
-					"foo":       "bar",
-					"namespace": "some-namespace",
-					"port_name": "some-port",
-					"container": "somecontainer",
-				},
+	t.Equal(&Target{
+		Metadata: Metadata{
+			Name:       "some-pod",
+			Source:     "some-cluster",
+			SourceType: "kubernetes",
+			Labels: map[string]string{
+				"foo":       "bar",
+				"namespace": "some-namespace",
+				"port_name": "some-port",
+				"container": "somecontainer",
 			},
-			Address: netip.MustParseAddrPort("10.0.1.1:8080"),
 		},
-		{
-			Metadata: Metadata{
-				Name:       "another-pod",
-				Source:     "some-cluster",
-				SourceType: "kubernetes",
-				Labels: map[string]string{
-					"app":       "some-app",
-					"namespace": "another-namespace",
-					"port_name": "another-port",
-					"container": "somecontainer",
-				},
+		Address: netip.MustParseAddrPort("10.0.1.1:8080"),
+	}, <-targets)
+
+	t.Equal(&Target{
+		Metadata: Metadata{
+			Name:       "another-pod",
+			Source:     "some-cluster",
+			SourceType: "kubernetes",
+			Labels: map[string]string{
+				"app":       "some-app",
+				"namespace": "another-namespace",
+				"port_name": "another-port",
+				"container": "somecontainer",
 			},
-			Address: netip.MustParseAddrPort("10.0.1.2:8081"),
 		},
-	}, candidates)
+		Address: netip.MustParseAddrPort("10.0.1.2:8081"),
+	}, <-targets)
 }
 
 func (t *PodTests) TestExtractsLabels() {
@@ -85,8 +84,10 @@ func (t *PodTests) TestExtractsLabels() {
 	)
 
 	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, t.Build())
-	candidates, _ := podDiscovery.Discover(context.Background())
 
+	targets := make(chan *Target, 2)
+	t.NoError(podDiscovery.Discover(context.Background(), targets))
+	target := <-targets
 	t.Equal(map[string]string{
 		"foo":       "bar",
 		"app":       "some-app",
@@ -94,24 +95,15 @@ func (t *PodTests) TestExtractsLabels() {
 		"port_name": "some-port",
 		"container": "somecontainer",
 	},
-		candidates[0].Labels,
+		target.Labels,
 	)
-}
-
-func (t *PodTests) TestInvalidAddressIPRaisesError() {
-	t.AddPods("some-pod", "some-namespace", map[string]string{},
-		v1.PodIP{IP: "not-an-ip"}, v1.ContainerPort{Name: "some-port", ContainerPort: 8080, Protocol: v1.ProtocolTCP},
-	)
-
-	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, t.Build())
-	_, err := podDiscovery.Discover(context.Background())
-	t.ErrorContains(err, "error parsing ip from not-an-ip")
 }
 
 func (t *PodTests) TestIssueLoadingPodsRaisesError() {
 	t.RaiseError("something barfed loading ")
 	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, t.Build())
-	_, err := podDiscovery.Discover(context.Background())
+	targets := make(chan *Target, 2)
+	err := podDiscovery.Discover(context.Background(), targets)
 	t.ErrorContains(err, "error discovering pods: something barfed")
 }
 

@@ -14,9 +14,9 @@ type ValidationsTests struct {
 }
 
 func (t *ValidationsTests) SetupTest() {
-	viper.Set(config.ConfigExpiryWindow, DefaultWarningDuration)
+	viper.Set(config.ValidationsExpiryWindow, DefaultWarningDuration)
 	viper.Set("validations.expiry.enabled", false)
-	viper.Set(config.ConfigTLSMinVersion, "1.2")
+	viper.Set(config.ValidationsTLSMinVersion, "1.2")
 }
 
 func (t *ValidationsTests) TestValidationsOnlyAppliedIfEnabled() {
@@ -30,7 +30,7 @@ func (t *ValidationsTests) TestValidationsOnlyAppliedIfEnabled() {
 
 func (t *ValidationsTests) TestValidationsCreationError() {
 	viper.Set("validations.expiry.enabled", true)
-	viper.Set(config.ConfigExpiryWindow, "invalid duration")
+	viper.Set(config.ValidationsExpiryWindow, "invalid duration")
 	_, err := CreateValidations()
 	t.ErrorContains(err, "error parsing expiry warning duration from invalid duration")
 }

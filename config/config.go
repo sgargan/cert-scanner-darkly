@@ -8,10 +8,13 @@ import (
 )
 
 const (
-	ConfigExpiryWindow          = "validations.expiry.warning_window"
-	ConfigTrustChainCACertPaths = "validations.trust-chain.ca_paths"
-	ConfigTLSMinVersion         = "validations.tls_version.min_version"
-	ConfigMetricsPort           = "metrics.port"
+	ValidationsExpiryWindow          = "validations.expiry.warning_window"
+	ValidationsTrustChainCACertPaths = "validations.trust-chain.ca_paths"
+	ValidationsTLSMinVersion         = "validations.tls_version.min_version"
+	DiscoveryK8sSource               = "discovery.kubernetes.source"
+	DiscoveryK8sNamespace            = "discovery.kubernetes.namespace"
+	DiscoveryK8sKeys                 = "discovery.kubernetes.keys"
+	ConfigMetricsPort                = "metrics.port"
 )
 
 // LoadConfiguration loads config from the configured file name into viper
@@ -31,9 +34,9 @@ func LoadConfiguration() error {
 
 func setDefaults() {
 
-	viper.SetDefault(ConfigExpiryWindow, "168h")
-	viper.SetDefault(ConfigTrustChainCACertPaths, []string{"./certs/ca_chain.pem"})
-	viper.SetDefault(ConfigTLSMinVersion, "1.2")
+	viper.SetDefault(ValidationsExpiryWindow, "168h")
+	viper.SetDefault(ValidationsTrustChainCACertPaths, []string{"./certs/ca_chain.pem"})
+	viper.SetDefault(ValidationsTLSMinVersion, "1.2")
 	viper.SetDefault("reporters.logging.enabled", true)
 	viper.SetDefault("reporters.metrics.enabled", true)
 }

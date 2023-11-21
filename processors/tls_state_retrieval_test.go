@@ -1,4 +1,4 @@
-package scanner
+package processors
 
 import (
 	"context"
@@ -18,22 +18,19 @@ type CertScannerTests struct {
 }
 
 func (t *CertScannerTests) TestScanValidTarget() {
-	scan := t.runScan(GetTestTargets())
-	for _, result := range scan.Results {
-		t.Equal(1, len(result.State.PeerCertificates))
-		t.Equal(0, len(result.Errors))
-		t.Equal(false, result.Failed)
-	}
+	targets := GetTestTargets()
+	result := t.runScan(targets[0])
+	t.Equal(1, len(result.State.PeerCertificates))
+	t.Equal(0, len(result.Errors))
+	t.Equal(false, result.Failed)
 }
 
 func (t *CertScannerTests) TestConnectionError() {
-	targets := []*Target{
-		&Target{
-			Address: netip.MustParseAddrPort("127.0.0.1:33333"),
-		},
+	target := &Target{
+		Address: netip.MustParseAddrPort("127.0.0.1:33333"),
 	}
-	scan := t.runScan(targets)
-	t.ValidateError(scan, "connection-error")
+	result := t.runScan(target)
+	t.ValidateError(result, "connection-error")
 }
 
 func (t *CertScannerTests) TestHandshakeError() {
@@ -42,12 +39,10 @@ func (t *CertScannerTests) TestHandshakeError() {
 	}()
 	time.Sleep(50 * time.Millisecond)
 
-	targets := []*Target{
-		&Target{
-			Address: netip.MustParseAddrPort("127.0.0.1:33334"),
-		},
+	target := &Target{
+		Address: netip.MustParseAddrPort("127.0.0.1:33334"),
 	}
-	scan := t.runScan(targets)
+	scan := t.runScan(target)
 	t.ValidateError(scan, "tls-handshake")
 }
 
@@ -66,19 +61,16 @@ func GetTestTargets() []*Target {
 	return targets
 }
 
-func (t *CertScannerTests) runScan(targets []*Target) *Scan {
-	scanner := CreateTLSStateRetrieval(len(targets))
-	scan := CreateScan(nil, nil)
-	t.NoError(scanner.Scan(context.Background(), scan, targets))
-	return scan
+func (t *CertScannerTests) runScan(target *Target) *CertScanResult {
+	tlsRetrieval, err := CreateTLSStateRetrieval()
+	t.NoError(err)
+	return tlsRetrieval.Process(context.Background(), target)
 }
 
-func (t *CertScannerTests) ValidateError(scan *Scan, errorType string) {
-	for _, result := range scan.Results {
-		t.Equal(1, len(result.Errors))
-		t.Equal(true, result.Failed)
-		t.Equal(errorType, result.Errors[0].Labels()["type"])
-	}
+func (t *CertScannerTests) ValidateError(result *CertScanResult, errorType string) {
+	t.Equal(1, len(result.Errors))
+	t.Equal(true, result.Failed)
+	t.Equal(errorType, result.Errors[0].Labels()["type"])
 }
 
 func TestCertScanner(t *testing.T) {

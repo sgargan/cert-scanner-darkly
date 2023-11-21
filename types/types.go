@@ -70,14 +70,25 @@ func (c *CertScanResult) Labels() map[string]string {
 	return copy
 }
 
+type Factory[T comparable] func() (T, error)
+
 // Discovery is implemented by various integrations that can discover tls services
 type Discovery interface {
-	Discover(ctx context.Context) ([]*Target, error)
+	// Discover [Target]s, emitting them to th given channel. Raises an error if there
+	// is any problem during discovery
+	Discover(ctx context.Context, targets chan *Target) error
 }
 
 type Discoveries = []Discovery
 
-type DiscoveryFactory = func() (Discovery, error)
+// Processor will be implemented by modules interested in examining discovered [Target]s.
+type Processor interface {
+
+	// Process a given target returning a CertScanResult
+	Process(ctx context.Context, target *Target) *CertScanResult
+}
+
+type Processors = []Processor
 
 // Validation makes a single cert validation request against a received certificate result
 type Validation interface {
@@ -89,8 +100,6 @@ type Validation interface {
 
 type Validations = []Validation
 
-type ValidationFactory = func() (Validation, error)
-
 // Reporter will be implemented by modules interested in acting on ScanResults. They can be used to
 // audit the various certificates in use or alert on any violations that are detected.
 type Reporter interface {
@@ -100,8 +109,6 @@ type Reporter interface {
 }
 
 type Reporters = []Reporter
-
-type ReporterFactory = func() (Reporter, error)
 
 // ScanError is a wrapper interface for errors that provides a type string for use in reporting
 type ScanError interface {

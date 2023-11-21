@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sgargan/cert-scanner-darkly/config"
 	. "github.com/sgargan/cert-scanner-darkly/types"
 	"github.com/spf13/viper"
 	"golang.org/x/exp/slog"
@@ -17,9 +18,9 @@ func CreateDiscovery() (Discovery, error) {
 		return nil, fmt.Errorf("error getting kubernetes client set: %v", err)
 	}
 
-	source := viper.GetString("discovery.kubernetes.source")
-	namespace := viper.GetString("discovery.kubernetes.namespace")
-	keys := viper.GetStringSlice("discovery.kubernetes.keys")
+	source := viper.GetString(config.DiscoveryK8sSource)
+	namespace := viper.GetString(config.DiscoveryK8sNamespace)
+	keys := viper.GetStringSlice(config.DiscoveryK8sKeys)
 
 	slog.Info("creating k8s discovery", "source", source, "namespace", namespace, "keys", strings.Join(keys, ","))
 	return CreatePodDiscovery(source, keys, client.CoreV1().Pods(namespace))

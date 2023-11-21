@@ -17,37 +17,85 @@ import (
 type Scan struct {
 	sync.Mutex
 	parallel    int
+	c           int
 	Results     []*CertScanResult
+	processors  Processors
+	discoveries Discoveries
 	validations Validations
 	reporters   Reporters
 }
 
-func CreateScan(validations Validations, reporters Reporters) *Scan {
+func CreateScan(discoveries Discoveries, processors Processors, validations Validations, reporters Reporters) *Scan {
 	return &Scan{
 		parallel:    getBatchSize(),
 		Results:     make([]*CertScanResult, 0),
+		discoveries: discoveries,
+		processors:  processors,
 		validations: validations,
 		reporters:   reporters,
 	}
 }
 
+func (s *Scan) Scan(ctx context.Context) error {
+	targets, err := s.discover(ctx)
+	if err != nil {
+		return err
+	}
+
+	s.process(ctx, targets)
+	s.validate(ctx)
+	s.report(ctx)
+	return nil
+}
+
 func (s *Scan) AddResult(result *CertScanResult) {
 	s.Lock()
 	defer s.Unlock()
+	s.c++
 	s.Results = append(s.Results, result)
 }
 
-// Retrieve will connect to each of the given [Targets] and initiate a tls connection. The resulting tls state gets stored
-// for validation. Retrieval is done in parallel and can be controlled via the 'batch.processors' config entry, defaulting to the
-// number of available processors
-func (s *Scan) Retrieve(ctx context.Context, targets []*Target) error {
-	tsr := CreateTLSStateRetrieval(s.parallel)
-	return tsr.Scan(ctx, s, targets)
+// process each of the targets and extract the certificate/connection state for post processing. Targets will be processed in parallel
+// number of concurrent retrievals can be controlled via the "batch.processors" configuration value.
+func (s *Scan) process(ctx context.Context, targets []*Target) error {
+	group := utils.BatchProcess[*Target](ctx, targets, s.parallel, func(ctx context.Context, target *Target) error {
+		for _, processor := range s.processors {
+			result := processor.Process(ctx, target)
+			s.AddResult(result)
+		}
+		return nil
+	})
+	return group.Wait()
 }
 
-// Validate will process each of the extracted tls states and apply a series of validations to verify the contained certs are ok. Validations
+// discover runs each of the [Discovery] mechanims in parallel to determin target services for further processing
 // are is done in parallel and can be controlled via the 'batch.processors' config entry, defaulting to the number of available processors
-func (s *Scan) Validate(ctx context.Context) error {
+func (s *Scan) discover(ctx context.Context) ([]*Target, error) {
+	// var c1, c2 atomic.Int32
+	targets := make(chan *Target)
+	aggregated := make([]*Target, 0)
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+	go func() {
+		defer wait.Done()
+		for target := range targets {
+			aggregated = append(aggregated, target)
+		}
+	}()
+
+	group := utils.BatchProcess[Discovery](ctx, s.discoveries, s.parallel, func(ctx context.Context, discovery Discovery) error {
+		slog.Debug("Discovering targets", "discovery", reflect.TypeOf(discovery).Name())
+		return discovery.Discover(ctx, targets)
+	})
+	err := group.Wait()
+	close(targets)
+	wait.Wait()
+	return aggregated, err
+}
+
+// validate will process each of the extracted tls states and apply a series of validations to verify the contained certs are ok. Validations
+// are is done in parallel and can be controlled via the 'batch.processors' config entry, defaulting to the number of available processors
+func (s *Scan) validate(ctx context.Context) error {
 	group := utils.BatchProcess[*CertScanResult](ctx, s.Results, s.parallel, func(ctx context.Context, result *CertScanResult) error {
 		slog.Debug("validating result", "target", result.Target.Name)
 		if !result.Failed {
@@ -60,9 +108,9 @@ func (s *Scan) Validate(ctx context.Context) error {
 	return group.Wait()
 }
 
-// Report will process all validated results allowing us to act on detected violations. Reporters are configurable via the 'reporters' stanza in the config.
+// report will process all validated results allowing us to act on detected violations. Reporters are configurable via the 'reporters' stanza in the config.
 // Reporters will ber run in parallel with each reporter processing the full results serially.
-func (s *Scan) Report(ctx context.Context) error {
+func (s *Scan) report(ctx context.Context) error {
 	group := utils.BatchProcess[Reporter](ctx, s.reporters, len(s.reporters), func(ctx context.Context, reporter Reporter) error {
 		slog.Debug("reporting on result", "reporter", reflect.TypeOf(reporter).Name())
 		for _, result := range s.Results {

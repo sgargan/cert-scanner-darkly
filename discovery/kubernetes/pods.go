@@ -46,12 +46,13 @@ func CreatePodDiscovery(source string, labelKeys []string, pods PodsInterface) (
 	}, nil
 }
 
-// Discover lists all kubernetes pods through the pods api and creates Candidates for scanning.
-// returns a slice of candidates parsed from the pods or an error if they cannot be retrieved or parsed.
-func (e *PodDiscovery) Discover(ctx context.Context) ([]*Target, error) {
+// Discover lists all kubernetes pods through the pods api and creates candidate [Target]s for scanning.
+// Each target is emitted onto the given channel for processing. Returns an error if the pods cannot be
+// be retrieved or parsed from the api
+func (e *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error {
 	pods, err := e.pods.List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("error discovering pods: %v", err)
+		return fmt.Errorf("error discovering pods: %v", err)
 	}
 
 	candidates := make([]*Target, 0)
@@ -59,7 +60,8 @@ func (e *PodDiscovery) Discover(ctx context.Context) ([]*Target, error) {
 		podIP := pod.Status.PodIP
 		ip, err := netip.ParseAddr(podIP)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing ip from %s", podIP)
+			slog.Error("error parsing pod ip", "ip", podIP, "error", err.Error())
+			continue
 		}
 		for _, container := range pod.Spec.Containers {
 			for _, port := range container.Ports {
@@ -77,7 +79,7 @@ func (e *PodDiscovery) Discover(ctx context.Context) ([]*Target, error) {
 				}
 
 				if port.Protocol == v1.ProtocolTCP {
-					candidates = append(candidates, &Target{
+					targets <- &Target{
 						Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
 						Metadata: Metadata{
 							Name:       pod.ObjectMeta.Name,
@@ -85,11 +87,11 @@ func (e *PodDiscovery) Discover(ctx context.Context) ([]*Target, error) {
 							SourceType: Kubernetes,
 							Labels:     labels,
 						},
-					})
+					}
 				}
 			}
 		}
 	}
 	slog.Info("pod discovery", "num_pods", len(pods.Items), "num_candidates", len(candidates))
-	return candidates, nil
+	return nil
 }
