@@ -59,12 +59,21 @@ func (t *ConfigTests) TestNoConfig() {
 	t.Equal(t.ParseDuration("168h"), viper.GetDuration("validations.expiry.warning_window"))
 }
 
+func (t *ConfigTests) TestInvalidDurations() {
+	t.Error(t.runTestCaseWithError("invalid interval", `interval: not a duration`))
+	t.Error(t.runTestCaseWithError("invalid timeout", `timeout: not a duration`))
+}
+
 func (t *ConfigTests) TestConfigFileDoesNotExist() {
 	viper.Set("config", "doesnotextist")
 	t.Error(LoadConfiguration())
 }
 
 func (t *ConfigTests) runTestCase(name, yaml string) {
+	t.NoError(t.runTestCaseWithError(name, yaml))
+}
+
+func (t *ConfigTests) runTestCaseWithError(name, yaml string) error {
 	configFile, err := os.CreateTemp("/tmp", "certscan*.yml")
 	t.NoError(err)
 	_, err = configFile.WriteString(yaml)
@@ -72,7 +81,7 @@ func (t *ConfigTests) runTestCase(name, yaml string) {
 	configFile.Close()
 
 	viper.Set("config", configFile.Name())
-	t.NoError(LoadConfiguration())
+	return LoadConfiguration()
 }
 
 func (t *ConfigTests) ParseDuration(duration string) time.Duration {

@@ -1,37 +1,48 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sgargan/cert-scanner-darkly/config"
-	"github.com/spf13/viper"
 )
 
 var (
-	serverStarted bool = false
-	millisBuckets      = []float64{1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
+	millisBuckets = []float64{1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
 	validations   *prometheus.CounterVec
-	latencies     *prometheus.HistogramVec
+	timings       *prometheus.HistogramVec
 )
 
 func Timing(millis float64, labels map[string]string) {
-	latencies.With(labels).Observe(millis)
+	timings.With(labels).Observe(millis)
 }
 
 func Validation(labels map[string]string) {
 	validations.With(labels).Inc()
 }
 
-func ConfigureMetrics(mux *http.ServeMux) error {
+type MetricsServer struct {
+	server *http.Server
+	port   int
+}
+
+func ConfigureMetrics(port int) *MetricsServer {
+	return &MetricsServer{
+		port: port,
+	}
+}
+
+func (m *MetricsServer) Start() error {
 	registry := prometheus.NewRegistry()
 	validations = createValidationCounter()
+	timings = createLatenciesHistogram()
 
 	registry.Register(validations)
-	registry.Register(latencies)
+	registry.Register(timings)
+	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.HandlerFor(
 		registry,
 		promhttp.HandlerOpts{
@@ -40,12 +51,18 @@ func ConfigureMetrics(mux *http.ServeMux) error {
 		}),
 	)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", viper.GetInt(config.ConfigMetricsPort)))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", m.port))
 	if err != nil {
 		return err
 	}
-	go http.Serve(listener, mux)
+
+	m.server = &http.Server{Handler: mux}
+	go m.server.Serve(listener)
 	return nil
+}
+
+func (m *MetricsServer) Stop() error {
+	return m.server.Shutdown(context.Background())
 }
 
 func createLatenciesHistogram() *prometheus.HistogramVec {
@@ -53,7 +70,7 @@ func createLatenciesHistogram() *prometheus.HistogramVec {
 		Name:    "scan_duration_millis",
 		Help:    "A histogram of time taken to connect and retrieve tls state information from discovered endpoints.",
 		Buckets: millisBuckets,
-	}, []string{"source", "sourceType", "success"})
+	}, []string{"source", "sourceType", "success", "type"})
 }
 
 func createValidationCounter() *prometheus.CounterVec {

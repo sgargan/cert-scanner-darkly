@@ -65,7 +65,9 @@ func (s *Scan) process(ctx context.Context, targets []*Target) error {
 		}
 		return nil
 	})
-	return group.Wait()
+	err := group.Wait()
+	slog.Info("Processing complete", "results", len(s.Results))
+	return err
 }
 
 // discover runs each of the [Discovery] mechanims in parallel to determin target services for further processing

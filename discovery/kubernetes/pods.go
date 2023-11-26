@@ -55,12 +55,12 @@ func (e *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 		return fmt.Errorf("error discovering pods: %v", err)
 	}
 
-	candidates := make([]*Target, 0)
+	numTargets := 0
 	for _, pod := range pods.Items {
 		podIP := pod.Status.PodIP
 		ip, err := netip.ParseAddr(podIP)
 		if err != nil {
-			slog.Error("error parsing pod ip", "ip", podIP, "error", err.Error())
+			slog.Error("error parsing pod ip", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP, "error", err.Error())
 			continue
 		}
 		for _, container := range pod.Spec.Containers {
@@ -79,6 +79,7 @@ func (e *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 				}
 
 				if port.Protocol == v1.ProtocolTCP {
+					numTargets++
 					targets <- &Target{
 						Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
 						Metadata: Metadata{
@@ -92,6 +93,6 @@ func (e *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 			}
 		}
 	}
-	slog.Info("pod discovery", "num_pods", len(pods.Items), "num_candidates", len(candidates))
+	slog.Info("finished pod discovery", "pods", len(pods.Items), "targets", numTargets)
 	return nil
 }
