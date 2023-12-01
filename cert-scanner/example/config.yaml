@@ -1,0 +1,26 @@
+---
+scan:
+  interval: 60m
+  timeout: 5m
+
+discovery:
+  kubernetes:
+    source: some-cluster
+
+validations:
+  expiry:
+    warning_window: 72h
+  tls-version:
+    min_version: 1.3
+  trust-chain:
+    ca:
+       paths: 
+       - /a/ca/path
+       - /b/ca/path
+       - /c/ca/path
+
+reporters:
+  logging:
+    enabled: true
+  metrics:
+    enabled: true

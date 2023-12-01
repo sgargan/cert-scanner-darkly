@@ -6,7 +6,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "main/main.go",
+            "program": "cert-scanner/main/main.go",
             "args": [
                 "-d",
                 "-c", "${workspaceFolder}/example/config.yaml"
