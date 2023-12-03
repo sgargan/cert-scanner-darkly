@@ -15,8 +15,7 @@ type FactoryTests struct {
 	factories map[string]Factory[string]
 }
 
-func (t *FactoryTests) TestCreateOnlyAppliedIfEnabled() {
-
+func (t *FactoryTests) SetupTest() {
 	mockOne := &MockFactory{}
 	mockTwo := &MockFactory{}
 	mockThree := &MockFactory{}
@@ -26,11 +25,22 @@ func (t *FactoryTests) TestCreateOnlyAppliedIfEnabled() {
 		"two":   mockTwo.Create,
 		"three": mockThree.Create,
 	}
+	viper.Reset()
+}
 
+func (t *FactoryTests) TestNotCreatedIfEnabledExplicityFalse() {
+	for _, factory := range []string{"one", "two", "three"} {
+		t.assertValidations(0)
+		viper.Set(fmt.Sprintf("somegroup.%s.enabled", factory), false)
+		t.assertValidations(0)
+	}
+}
+
+func (t *FactoryTests) TestCreateAppliedIfKeyAlonePresent() {
 	for x, factory := range []string{"one", "two", "three"} {
 		t.assertValidations(x)
-		viper.Set(fmt.Sprintf("somegroup.%s.enabled", factory), false)
-		t.assertValidations(x)
+		viper.Set(fmt.Sprintf("somegroup.%s", factory), true)
+		t.assertValidations(x + 1)
 		viper.Set(fmt.Sprintf("somegroup.%s.enabled", factory), true)
 		t.assertValidations(x + 1)
 	}

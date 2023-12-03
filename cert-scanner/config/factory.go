@@ -22,7 +22,10 @@ func CreateConfigured[T comparable](group string, factories map[string]Factory[T
 		key := fmt.Sprintf("%s.%s", group, name)
 		enabled := fmt.Sprintf("%s.enabled", key)
 
-		if (viper.Get(key) != nil && viper.Get(enabled) == nil) || viper.GetBool(enabled) {
+		keyset := viper.Get(key) != nil
+		notEnabled := viper.GetString(enabled) == ""
+		boolEnabled := viper.GetBool(enabled)
+		if boolEnabled || (keyset && notEnabled) {
 			if t, err := factory(); err != nil {
 				return nil, err
 			} else if !reflect.ValueOf(t).IsZero() {

@@ -15,7 +15,7 @@ const (
 )
 
 type MetricsReporter struct {
-	timingMetric     func(float64, map[string]string)
+	timingMetric     func(float32, map[string]string)
 	validationMetric func(map[string]string)
 }
 
@@ -28,7 +28,7 @@ func CreateMetricsReporter() (*MetricsReporter, error) {
 
 func (m *MetricsReporter) Report(ctx context.Context, result *CertScanResult) {
 	if result != nil && result.Target != nil {
-		m.timingMetric(float64(result.Duration*time.Millisecond), result.Labels())
+		m.timingMetric(float32(result.Duration*time.Millisecond), result.Labels())
 		for _, err := range result.Errors {
 			labels := getCertificateLabels(result)
 			for k, v := range err.Labels() {

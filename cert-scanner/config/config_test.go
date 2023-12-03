@@ -60,8 +60,12 @@ func (t *ConfigTests) TestNoConfig() {
 }
 
 func (t *ConfigTests) TestInvalidDurations() {
-	t.Error(t.runTestCaseWithError("invalid interval", `interval: not a duration`))
-	t.Error(t.runTestCaseWithError("invalid timeout", `timeout: not a duration`))
+	t.Error(t.runTestCaseWithError("invalid interval", `scan:
+    interval: not a duration
+`))
+	t.Error(t.runTestCaseWithError("invalid timeout", `scan:
+	timeout: not a duration
+`))
 }
 
 func (t *ConfigTests) TestConfigFileDoesNotExist() {

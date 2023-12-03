@@ -16,16 +16,16 @@ const (
 )
 
 var (
-	millisBuckets = []float64{1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000}
-	TimingMetric  = []string{"scan", "duration"}
+	TimingMetric     = []string{"scan", "duration"}
+	ValidationMetric = []string{"scan", "validation"}
 )
 
-func Timing(millis float64, labels map[string]string) {
+func Timing(millis float32, labels map[string]string) {
 	metrics.AddSampleWithLabels(TimingMetric, millis, toLabels(labels))
 }
 
 func Validation(labels map[string]string) {
-	metrics.IncrCounterWithLabels(TimingMetric, toLabels(labels))
+	metrics.IncrCounterWithLabels(ValidationMetric, 1, toLabels(labels))
 }
 
 func toLabels(labels map[string]string) []metrics.Label {
@@ -37,8 +37,9 @@ func toLabels(labels map[string]string) []metrics.Label {
 }
 
 type MetricsServer struct {
-	server *http.Server
-	port   int
+	server  *http.Server
+	metrics *metrics.Metrics
+	port    int
 }
 
 func ConfigureMetrics(port int) *MetricsServer {
@@ -48,15 +49,17 @@ func ConfigureMetrics(port int) *MetricsServer {
 }
 
 func (m *MetricsServer) Start() error {
-
+	// potentially we can support other metrics sinks via config
 	sink, err := prometheus.NewPrometheusSinkFrom(prometheus.PrometheusOpts{
 		Name: MetricsName,
 	})
 	if err != nil {
-		return fmt.Errorf("Error creating metrics: %v", err)
+		return fmt.Errorf("error creating metrics sink: %v", err)
 	}
 
-	metrics.NewGlobal(metrics.DefaultConfig(MetricsName), sink)
+	if m.metrics, err = metrics.NewGlobal(metrics.DefaultConfig(MetricsName), sink); err != nil {
+		return fmt.Errorf("error creating metrics instance: %v", err)
+	}
 
 	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.Handler())
@@ -72,23 +75,12 @@ func (m *MetricsServer) Start() error {
 }
 
 func (m *MetricsServer) Stop() error {
+	if m.metrics != nil {
+		m.metrics.Shutdown()
+	}
 	if m.server != nil {
+
 		return m.server.Shutdown(context.Background())
 	}
 	return nil
-}
-
-func createLatenciesHistogram() *prometheus.HistogramVec {
-	return prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "scan_duration_millis",
-		Help:    "A histogram of time taken to connect and retrieve tls state information from discovered endpoints.",
-		Buckets: millisBuckets,
-	}, []string{"source", "sourceType", "success", "type"})
-}
-
-func createValidationCounter() *prometheus.CounterVec {
-	return prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "scan_validations",
-		Help: "A counter tracking scan validation results",
-	}, []string{"type", "source", "sourceType", "success", "id", "common_name"})
 }
