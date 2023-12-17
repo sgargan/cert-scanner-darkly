@@ -50,7 +50,8 @@ func (t *ScannerTests) TestValidScanCallsAllDiscoveries() {
 
 func (t *ScannerTests) TestValidScanCallsProcessOnAllTargets() {
 	targets, _ := t.sut.discover(context.Background())
-	t.NoError(t.sut.process(context.Background(), targets))
+
+	t.sut.process(context.Background(), targets)
 	t.Equal(1000, len(t.sut.Results))
 
 	for x := 0; x < 10; x++ {
@@ -115,11 +116,11 @@ type MockProcessor struct {
 	called bool
 }
 
-func (m *MockProcessor) Process(ctx context.Context, target *Target) *CertScanResult {
+func (m *MockProcessor) Process(ctx context.Context, target *Target, results chan<- *CertScanResult) {
 	m.Lock()
 	defer m.Unlock()
 	m.called = true
-	return CreateTestCertScanResult().WithTarget(target).Build()
+	results <- CreateTestCertScanResult().WithTarget(target).Build()
 }
 
 type MockValidation struct {

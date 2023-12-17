@@ -42,7 +42,7 @@ func (t *LoggingTests) TestReportsSuccessfulResultToLog() {
 	lines := toJsonList(t.logFile)
 
 	delete(lines[0], "time")
-	t.Equal(map[string]interface{}{"level": "INFO", "msg": "duration", "source": "SomePod-acdf-bdfe", "source_type": "kubernetes", "failed": "false", "foo": "bar", "duration": "123000000"}, lines[0])
+	t.Equal(map[string]interface{}{"address": "172.1.2.34:8080", "level": "INFO", "msg": "duration", "source": "SomePod-acdf-bdfe", "source_type": "kubernetes", "failed": "false", "foo": "bar", "duration": "123000000"}, lines[0])
 }
 
 func (t *LoggingTests) TestReportsFailingResultToLog() {
@@ -55,7 +55,7 @@ func (t *LoggingTests) TestReportsFailingResultToLog() {
 	lines := toJsonList(t.logFile)
 
 	delete(lines[1], "time")
-	t.Equal(map[string]interface{}{"level": "INFO", "msg": "violation", "source": "SomePod-acdf-bdfe", "source_type": "kubernetes", "failed": "true", "foo": "bar", "type": "some-error"}, lines[1])
+	t.Equal(map[string]interface{}{"address": "172.1.2.34:8080", "level": "INFO", "msg": "violation", "source": "SomePod-acdf-bdfe", "source_type": "kubernetes", "failed": "true", "foo": "bar", "type": "some-error"}, lines[1])
 }
 
 func toJsonList(filename string) []map[string]interface{} {

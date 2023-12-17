@@ -58,14 +58,33 @@ func (s *Scan) AddResult(result *CertScanResult) {
 // process each of the targets and extract the certificate/connection state for post processing. Targets will be processed in parallel
 // number of concurrent retrievals can be controlled via the "batch.processors" configuration value.
 func (s *Scan) process(ctx context.Context, targets []*Target) error {
+	results := make(chan *CertScanResult)
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+	go func() {
+		for {
+			select {
+			case result, ok := <-results:
+				if !ok {
+					wait.Done()
+					return
+				}
+				s.AddResult(result)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	group := utils.BatchProcess[*Target](ctx, targets, s.parallel, func(ctx context.Context, target *Target) error {
 		for _, processor := range s.processors {
-			result := processor.Process(ctx, target)
-			s.AddResult(result)
+			processor.Process(ctx, target, results)
 		}
 		return nil
 	})
 	err := group.Wait()
+	close(results)
+	wait.Wait()
 	slog.Info("Processing complete", "results", len(s.Results))
 	return err
 }

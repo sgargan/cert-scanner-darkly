@@ -91,7 +91,7 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 							Labels:     labels,
 						},
 					}
-					slog.Debug("created target from pod", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP)
+					slog.Debug("created target from pod", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP, "port", port.ContainerPort)
 				}
 			}
 		}

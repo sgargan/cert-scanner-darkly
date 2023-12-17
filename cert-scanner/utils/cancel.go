@@ -2,8 +2,10 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 )
 
@@ -16,4 +18,21 @@ func CreateSignalledContext(timeout time.Duration, signals ...os.Signal) (contex
 func CreateSignalledContextWithContext(ctx context.Context, timeout time.Duration, signals ...os.Signal) (context.Context, context.CancelFunc) {
 	withSignals, _ := signal.NotifyContext(ctx, signals...)
 	return context.WithTimeout(withSignals, timeout)
+}
+
+type ContextualWaitGroup struct {
+	sync.WaitGroup
+}
+
+func (w *ContextualWaitGroup) WaitWithContext(ctx context.Context) {
+	// create a simple channel & goroutine so we can wait on both the wait group concurrently
+	waitCh := make(chan struct{})
+	go func() { w.Wait(); fmt.Println("closing"); close(waitCh) }()
+
+	select {
+	case <-waitCh:
+		return
+	case <-ctx.Done():
+		return
+	}
 }

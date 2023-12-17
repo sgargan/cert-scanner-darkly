@@ -25,6 +25,7 @@ type Metadata struct {
 
 type CertScanResult struct {
 	State    *tls.ConnectionState
+	Cipher   *tls.CipherSuite
 	Target   *Target
 	scanTime time.Time
 	Failed   bool
@@ -39,9 +40,10 @@ func NewCertScanResult(target *Target) *CertScanResult {
 	}
 }
 
-func (c *CertScanResult) SetState(state *tls.ConnectionState, err ScanError) {
+func (c *CertScanResult) SetState(state *tls.ConnectionState, cipher *tls.CipherSuite, err ScanError) {
 	c.Duration = time.Since(c.scanTime)
 	c.State = state
+	c.Cipher = cipher
 	c.Fail(err)
 }
 
@@ -63,6 +65,7 @@ func (c *CertScanResult) Labels() map[string]string {
 		"source":      c.Target.Source,
 		"source_type": c.Target.SourceType,
 		"failed":      failed,
+		"address":     c.Target.Address.String(),
 	}
 	for k, v := range c.Target.Labels {
 		copy[k] = v
@@ -85,7 +88,7 @@ type Discoveries = []Discovery
 type Processor interface {
 
 	// Process a given target returning a CertScanResult
-	Process(ctx context.Context, target *Target) *CertScanResult
+	Process(ctx context.Context, target *Target, results chan<- *CertScanResult)
 }
 
 type Processors = []Processor
@@ -117,6 +120,11 @@ type ScanError interface {
 	Error() string
 }
 
+const (
+	ConnectionError = "connection-error"
+	HandshakeError  = "tls-handshake"
+)
+
 type GenericScanError struct {
 	errorType string
 	error
@@ -128,4 +136,9 @@ func (e *GenericScanError) Labels() map[string]string {
 
 func CreateGenericError(errorType string, err error) ScanError {
 	return &GenericScanError{errorType: errorType, error: err}
+}
+
+func IsError(err error, errorType string) bool {
+	generic, isGeneric := err.(*GenericScanError)
+	return isGeneric && generic.errorType == errorType
 }

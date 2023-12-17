@@ -7,6 +7,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"math/big"
 	"net"
 	"os"
@@ -53,20 +54,26 @@ func (t *TestCA) WriteCerts() []string {
 
 func (t *TestCA) CreateLeafCert(commonName string) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
 
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		log.Fatalf("Failed to generate serial number: %v", err)
+	}
+
 	return t.CreateLeafFromTemplate(&x509.Certificate{
 		Subject: pkix.Name{
 			Country:      []string{"US"},
 			Organization: []string{"Cert Scanner"},
 			CommonName:   commonName,
 		},
-		SerialNumber:   big.NewInt(1234),
-		NotBefore:      time.Now().Add(-10 * time.Second),
-		NotAfter:       time.Now().AddDate(10, 0, 0),
-		KeyUsage:       x509.KeyUsageCRLSign,
-		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		IsCA:           false,
-		MaxPathLenZero: true,
-		IPAddresses:    []net.IP{net.ParseIP("127.0.0.1")},
+		SerialNumber:          serialNumber,
+		NotBefore:             time.Now().Add(-10 * time.Second),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IsCA:                  false,
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"127.0.0.1", "localhost"},
 	})
 }
 

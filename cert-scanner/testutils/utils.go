@@ -96,8 +96,13 @@ func (tc *TestCertResult) WithCertificates(certs ...*x509.Certificate) *TestCert
 	return tc
 }
 
+func (tc *TestCertResult) WithCipherSuite(suite *tls.CipherSuite) *TestCertResult {
+	tc.Cipher = suite
+	return tc
+}
+
 func (tc *TestCertResult) Build() *CertScanResult {
 	result := NewCertScanResult(tc.target)
-	result.SetState(&tc.ConnectionState, tc.err)
+	result.SetState(&tc.ConnectionState, tc.Cipher, tc.err)
 	return result
 }

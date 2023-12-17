@@ -56,6 +56,15 @@ func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValid
 			rootCAs.AddCert(cert)
 		}
 	}
+
+	if numCerts == 0 {
+		slog.Warn("no cert paths configured, using default system CA pool")
+		systemCAs, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, fmt.Errorf("error loading system cert bundle: %v", err)
+		}
+		return CreateTrustChainValidation(systemCAs), nil
+	}
 	slog.Debug("loaded all certs", "num_certs", numCerts)
 	return CreateTrustChainValidation(rootCAs), nil
 }

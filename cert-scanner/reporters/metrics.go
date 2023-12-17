@@ -3,7 +3,6 @@ package reporters
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/sgargan/cert-scanner-darkly/metrics"
 	. "github.com/sgargan/cert-scanner-darkly/types"
@@ -28,7 +27,7 @@ func CreateMetricsReporter() (*MetricsReporter, error) {
 
 func (m *MetricsReporter) Report(ctx context.Context, result *CertScanResult) {
 	if result != nil && result.Target != nil {
-		m.timingMetric(float32(result.Duration*time.Millisecond), result.Labels())
+		m.timingMetric(float32(result.Duration), result.Labels())
 		for _, err := range result.Errors {
 			labels := getCertificateLabels(result)
 			for k, v := range err.Labels() {
