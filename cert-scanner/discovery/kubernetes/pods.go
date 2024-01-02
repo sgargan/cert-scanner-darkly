@@ -25,24 +25,32 @@ type PodsInterface interface {
 }
 
 type PodDiscovery struct {
-	source    string
-	pods      PodsInterface
-	labelKeys []string
+	source           string
+	pods             PodsInterface
+	labelKeys        []string
+	ignoreContainers map[string]string
 }
 
 // Creates a new Pod discovery instance to discover scan candidates via the k8s cluster with the given source
 // label
-func CreatePodDiscovery(source string, labelKeys []string, pods PodsInterface) (*PodDiscovery, error) {
+func CreatePodDiscovery(source string, labelKeys []string, ignoreContainers []string, pods PodsInterface) (*PodDiscovery, error) {
 	if source == "" {
 		return nil, fmt.Errorf("a valid source label for the cluster is required")
 	}
 	if pods == nil {
 		return nil, fmt.Errorf("no pods api has been provided")
 	}
+
+	ignore := make(map[string]string, 0)
+	for _, container := range ignoreContainers {
+		ignore[container] = ""
+	}
+
 	return &PodDiscovery{
-		source:    source,
-		pods:      pods,
-		labelKeys: labelKeys,
+		source:           source,
+		pods:             pods,
+		labelKeys:        labelKeys,
+		ignoreContainers: ignore,
 	}, nil
 }
 
@@ -66,32 +74,34 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 			continue
 		}
 		for _, container := range pod.Spec.Containers {
-			for _, port := range container.Ports {
+			if _, ignored := d.ignoreContainers[container.Name]; !ignored {
+				for _, port := range container.Ports {
 
-				labels := Labels{
-					PortName:  port.Name,
-					Namespace: pod.ObjectMeta.Namespace,
-					Container: container.Name,
-				}
-
-				for _, key := range d.labelKeys {
-					if label, ok := pod.ObjectMeta.Labels[key]; ok {
-						labels[key] = label
+					labels := Labels{
+						PortName:  port.Name,
+						Namespace: pod.ObjectMeta.Namespace,
+						Container: container.Name,
 					}
-				}
 
-				if port.Protocol == v1.ProtocolTCP {
-					numTargets++
-					targets <- &Target{
-						Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
-						Metadata: Metadata{
-							Name:       pod.ObjectMeta.Name,
-							Source:     d.source,
-							SourceType: Kubernetes,
-							Labels:     labels,
-						},
+					for _, key := range d.labelKeys {
+						if label, ok := pod.ObjectMeta.Labels[key]; ok {
+							labels[key] = label
+						}
 					}
-					slog.Debug("created target from pod", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP, "port", port.ContainerPort)
+
+					if port.Protocol == v1.ProtocolTCP {
+						numTargets++
+						targets <- &Target{
+							Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
+							Metadata: Metadata{
+								Name:       pod.ObjectMeta.Name,
+								Source:     d.source,
+								SourceType: Kubernetes,
+								Labels:     labels,
+							},
+						}
+						slog.Debug("created target from pod", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP, "port", port.ContainerPort)
+					}
 				}
 			}
 		}

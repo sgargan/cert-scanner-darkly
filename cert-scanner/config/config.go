@@ -14,6 +14,7 @@ const (
 	ConfigMetricsPort                = "metrics.port"
 	DiscoveryK8sSource               = "discovery.kubernetes.source"
 	DiscoveryK8sNamespace            = "discovery.kubernetes.namespace"
+	DiscoveryK8sIgnore               = "discovery.kubernetes.ignore"
 	DiscoveryK8sKeys                 = "discovery.kubernetes.keys"
 	ValidationsExpiryWindow          = "validations.expiry.warning_window"
 	ValidationsTrustChainCACertPaths = "validations.trust-chain.ca_paths"

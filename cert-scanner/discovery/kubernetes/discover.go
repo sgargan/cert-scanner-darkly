@@ -21,7 +21,8 @@ func CreateDiscovery() (Discovery, error) {
 	source := viper.GetString(config.DiscoveryK8sSource)
 	namespace := viper.GetString(config.DiscoveryK8sNamespace)
 	keys := viper.GetStringSlice(config.DiscoveryK8sKeys)
+	ignore := viper.GetStringSlice(config.DiscoveryK8sIgnore)
 
 	slog.Info("creating k8s discovery", "source", source, "namespace", namespace, "keys", strings.Join(keys, ","))
-	return CreatePodDiscovery(source, keys, client.CoreV1().Pods(namespace))
+	return CreatePodDiscovery(source, keys, ignore, client.CoreV1().Pods(namespace))
 }

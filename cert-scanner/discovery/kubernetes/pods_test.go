@@ -26,10 +26,10 @@ func (t *PodTests) SetupTest() {
 }
 
 func (t *PodTests) TestDiscoveryCreationErrors() {
-	_, err := CreatePodDiscovery("", []string{}, t.Build())
+	_, err := CreatePodDiscovery("", []string{}, []string{}, t.Build())
 	t.ErrorContains(err, "a valid source label for the cluster is required")
 
-	_, err = CreatePodDiscovery("somecluster", []string{}, nil)
+	_, err = CreatePodDiscovery("somecluster", []string{}, []string{}, nil)
 	t.ErrorContains(err, "no pods api has been provided")
 }
 
@@ -41,7 +41,7 @@ func (t *PodTests) TestDiscoversValidPods() {
 		v1.PodIP{IP: "10.0.1.2"}, v1.ContainerPort{Name: "another-port", ContainerPort: 8081, Protocol: v1.ProtocolTCP},
 	)
 
-	podDiscovery, err := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, t.Build())
+	podDiscovery, err := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, []string{}, t.Build())
 	t.NoError(err)
 
 	targets := make(chan *Target, 2)
@@ -83,7 +83,7 @@ func (t *PodTests) TestExtractsLabels() {
 		v1.PodIP{IP: "10.0.1.1"}, v1.ContainerPort{Name: "some-port", ContainerPort: 8080, Protocol: v1.ProtocolTCP},
 	)
 
-	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, t.Build())
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, []string{}, t.Build())
 
 	targets := make(chan *Target, 2)
 	t.NoError(podDiscovery.Discover(context.Background(), targets))
@@ -101,10 +101,24 @@ func (t *PodTests) TestExtractsLabels() {
 
 func (t *PodTests) TestIssueLoadingPodsRaisesError() {
 	t.RaiseError("something barfed loading ")
-	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, t.Build())
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, []string{}, t.Build())
 	targets := make(chan *Target, 2)
 	err := podDiscovery.Discover(context.Background(), targets)
 	t.ErrorContains(err, "error discovering pods: something barfed")
+}
+
+func (t *PodTests) TestIgnoresPods() {
+	t.AddPods("some-pod", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, v1.ContainerPort{},
+	)
+	t.AddPods("some-pod", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, v1.ContainerPort{},
+	)
+
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, []string{"somecontainer"}, t.Build())
+	targets := make(chan *Target, 2)
+	t.NoError(podDiscovery.Discover(context.Background(), targets))
+	t.Equal(0, len(targets))
 }
 
 type MockPods struct {
