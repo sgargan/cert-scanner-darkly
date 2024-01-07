@@ -12,6 +12,8 @@ scanConfig:
   discovery:
     kubernetes:
       source: some-cluster
+      ignore:
+        - coredns
 
   validations:
     expiry:
@@ -32,7 +34,8 @@ scanConfig:
       enabled: true
 
 image:
-  repository: docker.io/stevegargan/cert-scanner-darkly
+  # repository: docker.io/stevegargan/cert-scanner-darkly
+  repository: registry-app.b1-prv.qops.net:5001/platform-infrastructure/internal-tools/cert-scanner-darkly
   pullPolicy: IfNotPresent
   tag: 0.0.2
 

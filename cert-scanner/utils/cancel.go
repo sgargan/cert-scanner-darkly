@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -25,9 +24,9 @@ type ContextualWaitGroup struct {
 }
 
 func (w *ContextualWaitGroup) WaitWithContext(ctx context.Context) {
-	// create a simple channel & goroutine so we can wait on both the wait group concurrently
+	// create a simple channel & goroutine so we can wait on both the wait group and context concurrently
 	waitCh := make(chan struct{})
-	go func() { w.Wait(); fmt.Println("closing"); close(waitCh) }()
+	go func() { w.Wait(); close(waitCh) }()
 
 	select {
 	case <-waitCh:

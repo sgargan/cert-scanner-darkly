@@ -6,6 +6,8 @@ import (
 	"net"
 	"sort"
 
+	"golang.org/x/exp/slog"
+
 	. "github.com/sgargan/cert-scanner-darkly/types"
 	"github.com/sgargan/cert-scanner-darkly/utils"
 	"golang.org/x/exp/slices"
@@ -27,9 +29,12 @@ func CreateTLSStateRetrieval() (Processor, error) {
 func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results chan<- *CertScanResult) {
 	// try each cipher from least to most secure until we fail to connect
 	wait := &utils.ContextualWaitGroup{}
-	for _, cipher := range orderedCipherSuites {
+
+	for _, x := range orderedCipherSuites {
+		cipher := x
 		wait.Add(len(cipher.SupportedVersions))
-		for _, version := range cipher.SupportedVersions {
+		for _, v := range cipher.SupportedVersions {
+			version := v
 			go func() {
 				defer wait.Done()
 				state, err := c.makeConnectionWithConfig(ctx, target, getConfig(cipher.ID, version))
@@ -43,6 +48,7 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 }
 
 func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {
+	slog.Debug(" connecting to target", "target", target.Name, "address", target.Address, "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", config.MaxVersion)
 	dialer := &net.Dialer{}
 	rawConn, err := dialer.DialContext(ctx, "tcp", target.Address.String())
 	if err != nil {
@@ -53,7 +59,11 @@ func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target
 		// attempt a handshake with the given config
 		conn := tls.Client(rawConn, config)
 		if err = conn.HandshakeContext(ctx); err != nil {
-			return nil, CreateGenericError(HandshakeError, err)
+
+			return nil, &TLSConnectionError{
+				config: *config,
+				error:  err,
+			}
 		}
 		state := conn.ConnectionState()
 		return &state, nil
@@ -63,6 +73,7 @@ func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target
 func getConfig(cipher, version uint16) *tls.Config {
 	// skip validation here so we as not to fail due errors like the servername or trust chain verification.
 	// these will get validated later
+	slog.Debug("cipher name ", "cipher", tls.CipherSuiteName(cipher), "version", tls.VersionName(version))
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		CipherSuites:       []uint16{cipher},
@@ -78,4 +89,17 @@ func sortCiphers() []*tls.CipherSuite {
 		return ordered[i].SupportedVersions[0] < ordered[j].SupportedVersions[0]
 	})
 	return ordered
+}
+
+type TLSConnectionError struct {
+	config tls.Config
+	error
+}
+
+func (t *TLSConnectionError) Labels() map[string]string {
+	return map[string]string{
+		"version": tls.VersionName(t.config.MaxVersion),
+		"cipher":  tls.CipherSuiteName(t.config.CipherSuites[0]),
+		"type":    HandshakeError,
+	}
 }

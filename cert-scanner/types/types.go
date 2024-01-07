@@ -3,8 +3,12 @@ package types
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/netip"
+	"sort"
 	"time"
+
+	"github.com/cespare/xxhash"
 )
 
 // Target represents a discovered service running on a given address and port
@@ -71,6 +75,21 @@ func (c *CertScanResult) Labels() map[string]string {
 		copy[k] = v
 	}
 	return copy
+}
+
+func (c *CertScanResult) Digest(labels map[string]string) string {
+	d := xxhash.New()
+	keys := make([]string, 0)
+
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		d.Write([]byte(k))
+		d.Write([]byte(labels[k]))
+	}
+	return fmt.Sprintf("%x", d.Sum64())
 }
 
 type Factory[T comparable] func() (T, error)
