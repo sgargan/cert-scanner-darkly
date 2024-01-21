@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	. "github.com/sgargan/cert-scanner-darkly/types"
 	"golang.org/x/exp/slog"
@@ -34,22 +33,9 @@ func CreateLoggingReporter(logFile *os.File) (*LoggingReporter, error) {
 	}, nil
 }
 
-func (l *LoggingReporter) Report(ctx context.Context, result *CertScanResult) {
-	if result != nil && result.Target != nil {
-		labels := result.Labels()
-		labels["duration"] = fmt.Sprintf("%d", result.Duration*time.Millisecond)
-		labels["digest"] = result.Digest(labels)
-		l.logger.Info("duration", labelsToList(labels)...)
-
-		labels = result.Labels()
-		for _, err := range result.Errors {
-			labels := getCertificateLabels(result)
-			for k, v := range err.Labels() {
-				labels[k] = v
-			}
-			labels["digest"] = result.Digest(labels)
-			l.logger.Info("violation", labelsToList(labels)...)
-		}
+func (l *LoggingReporter) Report(ctx context.Context, scan *TargetScan) {
+	for _, violation := range scan.Violations {
+		l.logger.Info("violation", labelsToList(violation.Labels())...)
 	}
 }
 

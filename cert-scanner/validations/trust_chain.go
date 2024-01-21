@@ -18,6 +18,7 @@ type TrustChainValidation struct {
 type TrustChainValidationError struct {
 	err      error
 	subjects string
+	result   *ScanResult
 }
 
 func (e *TrustChainValidationError) Error() string {
@@ -25,9 +26,9 @@ func (e *TrustChainValidationError) Error() string {
 }
 
 func (e *TrustChainValidationError) Labels() map[string]string {
-	return map[string]string{
-		"type": "trust-chain",
-	}
+	labels := e.result.Labels()
+	labels["type"] = "trust-chain"
+	return labels
 }
 
 // CreateTrustChainValidation creates a validation that will verify the trust chains
@@ -79,7 +80,8 @@ func CreateTrustChainValidation(rootCAs *x509.CertPool) *TrustChainValidation {
 
 // Validate will verify the cert chain from the scan result using the configured pool
 // of root CA certs ignoring any ServerNames in the certs.
-func (v *TrustChainValidation) Validate(result *CertScanResult) ScanError {
+func (v *TrustChainValidation) Validate(scan *TargetScan) ScanError {
+	result := scan.Results[0]
 	if v.rootCAs == nil {
 		return nil
 	}
@@ -100,7 +102,8 @@ func (v *TrustChainValidation) Validate(result *CertScanResult) ScanError {
 
 	if err != nil {
 		return &TrustChainValidationError{
-			err: fmt.Errorf("trust chain validation failed: %v", err),
+			result: result,
+			err:    fmt.Errorf("trust chain validation failed: %v", err),
 		}
 	}
 	return nil

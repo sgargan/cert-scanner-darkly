@@ -32,8 +32,8 @@ func (t *ScannerTests) SetupTest() {
 	for x := 0; x < 10; x++ {
 		t.discoveries = append(t.discoveries, &MockDiscovery{})
 		t.processors = append(t.processors, &MockProcessor{})
-		t.validations = append(t.validations, &MockValidation{results: make([]*CertScanResult, 0)})
-		t.reporters = append(t.reporters, &MockReporter{results: make([]*CertScanResult, 0)})
+		t.validations = append(t.validations, &MockValidation{results: make([]*TargetScan, 0)})
+		t.reporters = append(t.reporters, &MockReporter{results: make([]*TargetScan, 0)})
 	}
 	t.sut = CreateScan(t.discoveries, t.processors, t.validations, t.reporters)
 }
@@ -52,7 +52,7 @@ func (t *ScannerTests) TestValidScanCallsProcessOnAllTargets() {
 	targets, _ := t.sut.discover(context.Background())
 
 	t.sut.process(context.Background(), targets)
-	t.Equal(1000, len(t.sut.Results))
+	t.Equal(1000, len(t.sut.TargetScans))
 
 	for x := 0; x < 10; x++ {
 		r := t.sut.processors[x].(*MockProcessor)
@@ -61,6 +61,20 @@ func (t *ScannerTests) TestValidScanCallsProcessOnAllTargets() {
 }
 
 func (t *ScannerTests) TestValidScanCallsAllValidations() {
+	t.sut.Scan(context.Background())
+	for x := 0; x < 10; x++ {
+		v := t.validations[x].(*MockValidation)
+		t.True(v.called)
+		t.Equal(1000, len(v.results))
+	}
+}
+
+func (t *ScannerTests) TestScanAggregatesValidations() {
+	for x := 0; x < 10; x += 2 {
+		err := CreateGenericError("some-validation", fmt.Errorf("i gotta bad feeling about this"))
+		t.validations[x].(*MockValidation).err = err
+	}
+
 	t.sut.Scan(context.Background())
 	for x := 0; x < 10; x++ {
 		v := t.validations[x].(*MockValidation)
@@ -116,21 +130,21 @@ type MockProcessor struct {
 	called bool
 }
 
-func (m *MockProcessor) Process(ctx context.Context, target *Target, results chan<- *CertScanResult) {
+func (m *MockProcessor) Process(ctx context.Context, target *Target, results chan<- *TargetScan) {
 	m.Lock()
 	defer m.Unlock()
 	m.called = true
-	results <- CreateTestCertScanResult().WithTarget(target).Build()
+	results <- CreateTestTargetScan().WithTarget(target).Build()
 }
 
 type MockValidation struct {
 	sync.Mutex
 	err     ScanError
 	called  bool
-	results []*CertScanResult
+	results []*TargetScan
 }
 
-func (m *MockValidation) Validate(result *CertScanResult) ScanError {
+func (m *MockValidation) Validate(result *TargetScan) ScanError {
 	m.Lock()
 	defer m.Unlock()
 	m.called = true
@@ -141,10 +155,10 @@ func (m *MockValidation) Validate(result *CertScanResult) ScanError {
 type MockReporter struct {
 	sync.Mutex
 	called  bool
-	results []*CertScanResult
+	results []*TargetScan
 }
 
-func (m *MockReporter) Report(ctx context.Context, result *CertScanResult) {
+func (m *MockReporter) Report(ctx context.Context, result *TargetScan) {
 	m.Lock()
 	defer m.Unlock()
 	m.called = true

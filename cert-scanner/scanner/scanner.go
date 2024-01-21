@@ -18,7 +18,7 @@ type Scan struct {
 	sync.Mutex
 	parallel    int
 	c           int
-	Results     []*CertScanResult
+	TargetScans []*TargetScan
 	processors  Processors
 	discoveries Discoveries
 	validations Validations
@@ -28,7 +28,7 @@ type Scan struct {
 func CreateScan(discoveries Discoveries, processors Processors, validations Validations, reporters Reporters) *Scan {
 	return &Scan{
 		parallel:    getBatchSize(),
-		Results:     make([]*CertScanResult, 0),
+		TargetScans: make([]*TargetScan, 0),
 		discoveries: discoveries,
 		processors:  processors,
 		validations: validations,
@@ -48,17 +48,17 @@ func (s *Scan) Scan(ctx context.Context) error {
 	return nil
 }
 
-func (s *Scan) AddResult(result *CertScanResult) {
+func (s *Scan) AddResult(result *TargetScan) {
 	s.Lock()
 	defer s.Unlock()
 	s.c++
-	s.Results = append(s.Results, result)
+	s.TargetScans = append(s.TargetScans, result)
 }
 
 // process each of the targets and extract the certificate/connection state for post processing. Targets will be processed in parallel
 // number of concurrent retrievals can be controlled via the "batch.processors" configuration value.
 func (s *Scan) process(ctx context.Context, targets []*Target) error {
-	results := make(chan *CertScanResult)
+	results := make(chan *TargetScan)
 	wait := sync.WaitGroup{}
 	wait.Add(1)
 	go func() {
@@ -85,7 +85,7 @@ func (s *Scan) process(ctx context.Context, targets []*Target) error {
 	err := group.Wait()
 	close(results)
 	wait.Wait()
-	slog.Info("Processing complete", "results", len(s.Results))
+	slog.Info("Processing complete", "results", len(s.TargetScans))
 	return err
 }
 
@@ -117,11 +117,11 @@ func (s *Scan) discover(ctx context.Context) ([]*Target, error) {
 // validate will process each of the extracted tls states and apply a series of validations to verify the contained certs are ok. Validations
 // are is done in parallel and can be controlled via the 'batch.processors' config entry, defaulting to the number of available processors
 func (s *Scan) validate(ctx context.Context) error {
-	group := utils.BatchProcess[*CertScanResult](ctx, s.Results, s.parallel, func(ctx context.Context, result *CertScanResult) error {
-		slog.Debug("validating result", "target", result.Target.Name)
-		if !result.Failed {
+	group := utils.BatchProcess[*TargetScan](ctx, s.TargetScans, s.parallel, func(ctx context.Context, targetScan *TargetScan) error {
+		slog.Debug("validating target scan", "target", targetScan.Target.Name)
+		if !targetScan.Failed {
 			for _, validation := range s.validations {
-				result.Fail(validation.Validate(result))
+				targetScan.AddViolation(validation.Validate(targetScan))
 			}
 		}
 		return nil
@@ -129,12 +129,13 @@ func (s *Scan) validate(ctx context.Context) error {
 	return group.Wait()
 }
 
-// report will process all validated results allowing us to act on detected violations. Reporters are configurable via the 'reporters' stanza in the config.
+// report will process all validated TargetScans allowing us to act on detected violations. Reporters are configurable via the 'reporters' stanza in the config.
 // Reporters will ber run in parallel with each reporter processing the full results serially.
 func (s *Scan) report(ctx context.Context) error {
+	slog.Info("starting reporting", "target_scans", len(s.TargetScans))
 	group := utils.BatchProcess[Reporter](ctx, s.reporters, len(s.reporters), func(ctx context.Context, reporter Reporter) error {
-		slog.Debug("reporting on result", "reporter", reflect.TypeOf(reporter).Name())
-		for _, result := range s.Results {
+		slog.Debug("reporting on target scans", "reporter", reflect.TypeOf(reporter).Name())
+		for _, result := range s.TargetScans {
 			reporter.Report(ctx, result)
 		}
 		return nil

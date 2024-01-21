@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
+	"net/netip"
 	"time"
 
 	. "github.com/sgargan/cert-scanner-darkly/types"
@@ -58,13 +59,15 @@ func (tc *TestCertificate) Build() (cert *x509.Certificate, err error) {
 }
 
 type TestCertResult struct {
-	target *Target
-	err    ScanError
-	CertScanResult
+	target    *Target
+	err       ScanError
+	violation ScanError
+	duration  time.Duration
+	result    *ScanResult
 	tls.ConnectionState
 }
 
-func CreateTestCertScanResult() *TestCertResult {
+func CreateTestTargetScan() *TestCertResult {
 	return &TestCertResult{
 		target: &Target{},
 		ConnectionState: tls.ConnectionState{
@@ -86,6 +89,11 @@ func (tc *TestCertResult) WithError(err ScanError) *TestCertResult {
 	return tc
 }
 
+func (tc *TestCertResult) WithViolation(violation ScanError) *TestCertResult {
+	tc.violation = violation
+	return tc
+}
+
 func (tc *TestCertResult) WithTLSVersion(version uint16) *TestCertResult {
 	tc.Version = version
 	return tc
@@ -97,12 +105,48 @@ func (tc *TestCertResult) WithCertificates(certs ...*x509.Certificate) *TestCert
 }
 
 func (tc *TestCertResult) WithCipherSuite(suite *tls.CipherSuite) *TestCertResult {
-	tc.Cipher = suite
+	tc.result.Cipher = suite
 	return tc
 }
 
-func (tc *TestCertResult) Build() *CertScanResult {
-	result := NewCertScanResult(tc.target)
-	result.SetState(&tc.ConnectionState, tc.Cipher, tc.err)
-	return result
+func (tc *TestCertResult) WithDuration(duration time.Duration) *TestCertResult {
+	tc.duration = duration
+	return tc
+}
+
+func (tc *TestCertResult) WithScanResult(result *ScanResult) *TestCertResult {
+	tc.result = result
+	return tc
+}
+
+func (tc *TestCertResult) Build() *TargetScan {
+	scan := NewTargetScanResult(tc.target)
+
+	result := tc.result
+	if result == nil {
+		result = NewScanResult()
+		result.Cipher = tls.CipherSuites()[0]
+	}
+
+	result.SetState(&tc.ConnectionState, result.Cipher, tc.err)
+	result.Duration = tc.duration
+
+	if tc.violation != nil {
+		scan.AddViolation(tc.violation)
+		result.Failed = true
+	}
+
+	scan.Add(result)
+	return scan
+}
+
+func TestTarget() *Target {
+	return &Target{
+		Address: netip.MustParseAddrPort("172.1.2.34:8080"),
+		Metadata: Metadata{
+			Labels:     map[string]string{"foo": "bar"},
+			SourceType: "kubernetes",
+			Source:     "SomePod-acdf-bdfe",
+		},
+	}
 }

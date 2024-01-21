@@ -25,16 +25,19 @@ func (t *CertScannerTests) TestScanValidTarget() {
 	}
 
 	testutils.WithTestServerVersion(tls.VersionTLS12, 33333, func(testServer *testutils.TestTlsServer) error {
-		results := t.runScan(target)
-		if results != nil {
+		scan := t.runScan(target)
+		if scan != nil {
 			// the majority will be handshake failures
-			for _, result := range results {
+			for _, result := range scan {
 				if result.Failed {
-					t.ErrorContains(result.Errors[0], "handshake failure")
+					t.ErrorContains(result.Results[0].Error, "protocol version not supported")
 				} else {
-					t.Equal(1, len(result.State.PeerCertificates))
-					t.GreaterOrEqual(result.State.Version, uint16(tls.VersionTLS12))
-					t.NotNil(result.Cipher)
+					r := result.FirstSuccessful
+					t.NotNil(r)
+					t.NotNil(r.State)
+					t.Equal(1, len(r.State.PeerCertificates))
+					t.GreaterOrEqual(r.State.Version, uint16(tls.VersionTLS12))
+					t.NotNil(r.Cipher)
 				}
 			}
 		}
@@ -79,17 +82,17 @@ func GetTestTargets() []*Target {
 	return targets
 }
 
-func (t *CertScannerTests) runScan(target *Target) []*CertScanResult {
+func (t *CertScannerTests) runScan(target *Target) []*TargetScan {
 	tlsRetrieval, err := CreateTLSStateRetrieval()
 	t.NoError(err)
-	results := make(chan *CertScanResult)
+	results := make(chan *TargetScan)
 	go func() {
 		tlsRetrieval.Process(context.Background(), target, results)
 		close(results)
 	}()
 
 	timeout := time.NewTimer(15 * time.Second)
-	aggregatedResults := make([]*CertScanResult, 0)
+	aggregatedResults := make([]*TargetScan, 0)
 	for {
 		select {
 		case <-timeout.C:
@@ -104,10 +107,11 @@ func (t *CertScannerTests) runScan(target *Target) []*CertScanResult {
 	}
 }
 
-func (t *CertScannerTests) ValidateError(result *CertScanResult, errorType string) {
-	t.Equal(1, len(result.Errors))
-	t.Equal(true, result.Failed)
-	t.Equal(errorType, result.Errors[0].Labels()["type"])
+func (t *CertScannerTests) ValidateError(scan *TargetScan, errorType string) {
+	r := scan.Results[0]
+	t.NotNil(r.Error)
+	t.True(r.Failed)
+	t.Equal(errorType, r.Labels()["type"])
 }
 
 func TestCertScanner(t *testing.T) {

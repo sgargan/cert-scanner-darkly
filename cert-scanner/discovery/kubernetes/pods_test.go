@@ -89,13 +89,16 @@ func (t *PodTests) TestExtractsLabels() {
 	t.NoError(podDiscovery.Discover(context.Background(), targets))
 	target := <-targets
 	t.Equal(map[string]string{
-		"foo":       "bar",
-		"app":       "some-app",
-		"namespace": "some-namespace",
-		"port_name": "some-port",
-		"container": "somecontainer",
+		"address":     "10.0.1.1:8080",
+		"app":         "some-app",
+		"foo":         "bar",
+		"namespace":   "some-namespace",
+		"container":   "somecontainer",
+		"port_name":   "some-port",
+		"source":      "some-cluster",
+		"source_type": "kubernetes",
 	},
-		target.Labels,
+		target.Labels(),
 	)
 }
 

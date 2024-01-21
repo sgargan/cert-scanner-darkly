@@ -16,6 +16,7 @@ type TLSVersionValidation struct {
 type TLSVersionValidationError struct {
 	detectedVersion string
 	minVersion      string
+	result          *ScanResult
 }
 
 func (e *TLSVersionValidationError) Error() string {
@@ -23,11 +24,11 @@ func (e *TLSVersionValidationError) Error() string {
 }
 
 func (e *TLSVersionValidationError) Labels() map[string]string {
-	return map[string]string{
-		"type":             "tls_version",
-		"detected_version": e.detectedVersion,
-		"min_version":      e.minVersion,
-	}
+	labels := e.result.Labels()
+	labels["type"] = "tls_version"
+	labels["detected_version"] = e.detectedVersion
+	labels["min_version"] = e.minVersion
+	return labels
 }
 
 func CreateTLSVersionValidation(minVersion string) (*TLSVersionValidation, error) {
@@ -39,7 +40,8 @@ func CreateTLSVersionValidation(minVersion string) (*TLSVersionValidation, error
 }
 
 // Validate will check that the tls version is not less than the minimum configured version
-func (v *TLSVersionValidation) Validate(result *CertScanResult) ScanError {
+func (v *TLSVersionValidation) Validate(scan *TargetScan) ScanError {
+	result := scan.Results[0]
 	if int(result.State.Version) < v.minVersion {
 		return &TLSVersionValidationError{
 			detectedVersion: toVersion(int(result.State.Version)),

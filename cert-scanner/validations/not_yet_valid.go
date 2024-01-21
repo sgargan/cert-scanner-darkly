@@ -13,6 +13,7 @@ type BeforeValidationError struct {
 	ScanError
 	untilValid time.Duration
 	notBefore  time.Time
+	result     *ScanResult
 }
 
 func (e *BeforeValidationError) Error() string {
@@ -21,11 +22,11 @@ func (e *BeforeValidationError) Error() string {
 }
 
 func (e *BeforeValidationError) Labels() map[string]string {
-	return map[string]string{
-		"type":        "before",
-		"until_valid": e.untilValid.String(),
-		"not_before":  fmt.Sprintf("%d", e.notBefore.UnixMilli()),
-	}
+	labels := e.result.Labels()
+	labels["type"] = "before"
+	labels["until_valid"] = e.untilValid.String()
+	labels["not_before"] = fmt.Sprintf("%d", e.notBefore.UnixMilli())
+	return labels
 }
 
 func CreateBeforeValidation() *BeforeValidation {
@@ -35,7 +36,8 @@ func CreateBeforeValidation() *BeforeValidation {
 // Validate will examine each cert in a scan result and check that it's not within the
 // configured time warning window before Before. If the cert will expire in the next 7 days
 // this validation will fail and raise an error.
-func (v *BeforeValidation) Validate(result *CertScanResult) ScanError {
+func (v *BeforeValidation) Validate(scan *TargetScan) ScanError {
+	result := scan.Results[0]
 	for _, cert := range result.State.PeerCertificates {
 		untilValid := time.Until(cert.NotBefore)
 		if untilValid > 0 {

@@ -14,6 +14,15 @@ type ExpiryValidation struct {
 type ExpiryValidationError struct {
 	warningDuration time.Duration
 	notAfter        time.Time
+	result          *ScanResult
+}
+
+func CreateExpiryValidationError(warningDuration time.Duration, notAfter time.Time, result *ScanResult) *ExpiryValidationError {
+	return &ExpiryValidationError{
+		result:          result,
+		warningDuration: warningDuration,
+		notAfter:        notAfter,
+	}
 }
 
 func (e *ExpiryValidationError) Error() string {
@@ -21,11 +30,12 @@ func (e *ExpiryValidationError) Error() string {
 }
 
 func (e *ExpiryValidationError) Labels() map[string]string {
-	return map[string]string{
-		"type":             "expiry",
-		"warning_duration": e.warningDuration.String(),
-		"not_after":        fmt.Sprintf("%d", e.notAfter.UnixMilli()),
-	}
+	labels := e.result.Labels()
+	labels["type"] = "expiry"
+	labels["warning_duration"] = e.warningDuration.String()
+	labels["not_after"] = fmt.Sprintf("%d", e.notAfter.UnixMilli())
+
+	return labels
 }
 
 // CreateExpiryValidation with the given warning duration
@@ -33,16 +43,14 @@ func CreateExpiryValidation(warningDuration time.Duration) *ExpiryValidation {
 	return &ExpiryValidation{warningDuration: warningDuration}
 }
 
-// Validate will examine each cert in a scan result and check that it's not within the
-// configured time warning window before expiry. If the cert will expire in the next 7 days
-// this validation will fail and raise an error.
-func (v *ExpiryValidation) Validate(result *CertScanResult) ScanError {
+// Validate will examine the cert from the first successful ScanResult in a TargetScan
+// and check that it's not within the configured time warning window before expiry. If the cert
+// expiry falls in the the warning window, this validation will fail and raise a validation error
+func (v *ExpiryValidation) Validate(scan *TargetScan) ScanError {
+	result := scan.FirstSuccessful
 	for _, cert := range result.State.PeerCertificates {
 		if time.Until(cert.NotAfter) < v.warningDuration {
-			return &ExpiryValidationError{
-				warningDuration: v.warningDuration,
-				notAfter:        cert.NotAfter,
-			}
+			return CreateExpiryValidationError(v.warningDuration, cert.NotAfter, result)
 		}
 	}
 	return nil

@@ -26,9 +26,10 @@ func CreateTLSStateRetrieval() (Processor, error) {
 	return &TLSStateRetrieval{}, nil
 }
 
-func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results chan<- *CertScanResult) {
+func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results chan<- *TargetScan) {
 	// try each cipher from least to most secure until we fail to connect
 	wait := &utils.ContextualWaitGroup{}
+	targetScan := NewTargetScanResult(target)
 
 	for _, x := range orderedCipherSuites {
 		cipher := x
@@ -37,14 +38,15 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 			version := v
 			go func() {
 				defer wait.Done()
+				result := NewScanResult()
 				state, err := c.makeConnectionWithConfig(ctx, target, getConfig(cipher.ID, version))
-				result := NewCertScanResult(target)
 				result.SetState(state, cipher, err)
-				results <- result
+				targetScan.Add(result)
 			}()
 		}
 	}
 	wait.WaitWithContext(ctx)
+	results <- targetScan
 }
 
 func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {

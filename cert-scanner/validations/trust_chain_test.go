@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/sgargan/cert-scanner-darkly/testutils"
 	. "github.com/sgargan/cert-scanner-darkly/testutils"
 	"github.com/stretchr/testify/suite"
 )
@@ -26,14 +27,14 @@ func (t *TrustChainValidationTests) SetupTest() {
 
 func (t *TrustChainValidationTests) TestHasValidTrustChain() {
 	cert := t.createTestCertFromCA(t.ca)
-	result := CreateTestCertScanResult().WithCertificates(cert).Build()
+	result := CreateTestTargetScan().WithCertificates(cert).Build()
 	t.NoError(t.sut.Validate(result))
 }
 
 func (t *TrustChainValidationTests) TestHasValidTrustChainFromPaths() {
 	sut, err := CreateTrustChainValidationWithPaths(t.ca.WriteCerts())
 	t.NoError(err)
-	result := CreateTestCertScanResult().WithCertificates(t.createTestCertFromCA(t.ca)).Build()
+	result := CreateTestTargetScan().WithCertificates(t.createTestCertFromCA(t.ca)).Build()
 	t.NoError(sut.Validate(result))
 }
 
@@ -56,7 +57,7 @@ func (t *TrustChainValidationTests) TestErrorBogusCertsFromPaths() {
 func (t *TrustChainValidationTests) TestHasInvalidTrustChain() {
 	unknownCa, _ := CreateTestCA(3)
 	cert := t.createTestCertFromCA(unknownCa)
-	result := CreateTestCertScanResult().WithCertificates(cert).Build()
+	result := CreateTestTargetScan().WithCertificates(cert).Build()
 	t.ErrorContains(t.sut.Validate(result), "certificate signed by unknown authority")
 }
 
@@ -67,12 +68,26 @@ func (t *TrustChainValidationTests) createTestCertFromCA(ca *TestCA) *x509.Certi
 }
 
 func (t *TrustChainValidationTests) TestLabels() {
-	err := TrustChainValidationError{
-		err: fmt.Errorf("something barfed"),
+	cert, _, _, err := t.ca.CreateLeafCert("somehost")
+	t.NoError(err)
+	scan := CreateTestTargetScan().WithTarget(testutils.TestTarget()).WithCertificates(cert).Build()
+	scan.Results[0].Failed = true
+
+	violation := TrustChainValidationError{
+		err:    fmt.Errorf("something barfed"),
+		result: scan.Results[0],
 	}
+
 	t.Equal(map[string]string{
-		"type": "trust-chain",
-	}, err.Labels())
+		"address":     "172.1.2.34:8080",
+		"common_name": "somehost",
+		"failed":      "true",
+		"foo":         "bar",
+		"id":          fmt.Sprintf("%x", cert.SerialNumber),
+		"source":      "SomePod-acdf-bdfe",
+		"source_type": "kubernetes",
+		"type":        "trust-chain",
+	}, violation.Labels())
 }
 
 func TestTrustChainValidation(t *testing.T) {

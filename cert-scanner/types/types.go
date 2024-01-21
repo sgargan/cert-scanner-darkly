@@ -5,11 +5,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/netip"
-	"sort"
+	"sync"
 	"time"
-
-	"github.com/cespare/xxhash"
 )
+
+type Labels = map[string]string
 
 // Target represents a discovered service running on a given address and port
 // that may be TLS enabled
@@ -18,78 +18,117 @@ type Target struct {
 	Address netip.AddrPort
 }
 
-type Labels = map[string]string
-
-type Metadata struct {
-	Name       string
-	Source     string
-	SourceType string
-	Labels     map[string]string
-}
-
-type CertScanResult struct {
-	State    *tls.ConnectionState
-	Cipher   *tls.CipherSuite
-	Target   *Target
-	scanTime time.Time
-	Failed   bool
-	Duration time.Duration
-	Errors   []ScanError
-}
-
-func NewCertScanResult(target *Target) *CertScanResult {
-	return &CertScanResult{
-		Target:   target,
-		scanTime: time.Now(),
+func (t *Target) Labels() Labels {
+	copy := Labels{
+		"source":      t.Source,
+		"source_type": t.SourceType,
+		"address":     t.Address.String(),
 	}
-}
-
-func (c *CertScanResult) SetState(state *tls.ConnectionState, cipher *tls.CipherSuite, err ScanError) {
-	c.Duration = time.Since(c.scanTime)
-	c.State = state
-	c.Cipher = cipher
-	c.Fail(err)
-}
-
-func (c *CertScanResult) Fail(err ScanError) {
-	if err != nil {
-		c.Failed = true
-		c.Errors = append(c.Errors, err)
-	}
-}
-
-// Labels returns a copy of the result targets labels
-func (c *CertScanResult) Labels() map[string]string {
-	failed := "false"
-	if c.Failed {
-		failed = "true"
-	}
-
-	copy := map[string]string{
-		"source":      c.Target.Source,
-		"source_type": c.Target.SourceType,
-		"failed":      failed,
-		"address":     c.Target.Address.String(),
-	}
-	for k, v := range c.Target.Labels {
+	for k, v := range t.Metadata.Labels {
 		copy[k] = v
 	}
 	return copy
 }
 
-func (c *CertScanResult) Digest(labels map[string]string) string {
-	d := xxhash.New()
-	keys := make([]string, 0)
+type Metadata struct {
+	Name       string
+	Source     string
+	SourceType string
+	Labels     Labels
+}
 
-	for k := range labels {
-		keys = append(keys, k)
+// TargetScan captures the state gathered from scanning a single target. This will consist
+// of one or more Scan results.
+type TargetScan struct {
+	sync.Mutex
+	Target          *Target
+	Results         []*ScanResult
+	scanTime        time.Time
+	Duration        time.Duration
+	Failed          bool
+	FirstSuccessful *ScanResult
+	Violations      []ScanError
+}
+
+func NewTargetScanResult(target *Target) *TargetScan {
+	return &TargetScan{
+		Target:     target,
+		scanTime:   time.Now(),
+		Violations: make([]ScanError, 0),
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		d.Write([]byte(k))
-		d.Write([]byte(labels[k]))
+}
+
+// AddViolation adds a detected violation for one ScanResult to the target scan
+func (t *TargetScan) AddViolation(violation ScanError) {
+	t.Violations = append(t.Violations, violation)
+}
+
+// Add the result of scanning the target with a single protocol and version to the TargetScan
+func (t *TargetScan) Add(r *ScanResult) {
+	t.Lock()
+	defer t.Unlock()
+	r.target = t.Target
+	t.Results = append(t.Results, r)
+	t.Duration = time.Since(t.scanTime)
+	if !r.Failed && t.FirstSuccessful == nil {
+		t.FirstSuccessful = r
 	}
-	return fmt.Sprintf("%x", d.Sum64())
+}
+
+// ScanResult is the state detected from a single scan of a target with a specific TLS
+// cipher and version.
+type ScanResult struct {
+	State    *tls.ConnectionState
+	Cipher   *tls.CipherSuite
+	scanTime time.Time
+	Duration time.Duration
+	Failed   bool
+	Error    ScanError
+	target   *Target
+}
+
+func NewScanResult() *ScanResult {
+	return &ScanResult{
+		scanTime: time.Now(),
+	}
+}
+
+func (s *ScanResult) SetState(state *tls.ConnectionState, cipher *tls.CipherSuite, err ScanError) {
+	s.Duration = time.Since(s.scanTime)
+	s.State = state
+	s.Cipher = cipher
+	s.Failed = err != nil
+	s.Error = err
+}
+
+// Labels returns a copy of the result targets labels
+func (s *ScanResult) Labels() map[string]string {
+	copy := s.target.Labels()
+	if s.Failed {
+		copy["failed"] = "true"
+	} else {
+		copy["failed"] = "false"
+	}
+
+	if s.Error != nil {
+		for k, v := range s.Error.Labels() {
+			copy[k] = v
+		}
+	}
+
+	if s.State != nil && len(s.State.PeerCertificates) > 0 {
+		copy["id"] = fmt.Sprintf("%x", s.State.PeerCertificates[0].SerialNumber)
+		copy["common_name"] = s.State.PeerCertificates[0].Subject.CommonName
+	}
+	return copy
+}
+
+// Fail the scan with the given error
+func (s *ScanResult) Fail(err ScanError) {
+	if err != nil {
+		s.Failed = true
+		s.Error = err
+	}
 }
 
 type Factory[T comparable] func() (T, error)
@@ -106,8 +145,8 @@ type Discoveries = []Discovery
 // Processor will be implemented by modules interested in examining discovered [Target]s.
 type Processor interface {
 
-	// Process a given target returning a CertScanResult
-	Process(ctx context.Context, target *Target, results chan<- *CertScanResult)
+	// Process a given target returning a TargetScan
+	Process(ctx context.Context, target *Target, results chan<- *TargetScan)
 }
 
 type Processors = []Processor
@@ -117,17 +156,18 @@ type Validation interface {
 
 	// Validate runs the single validation against the given result, returning an error if
 	// the result state fails the validation or nil if the validation passes.
-	Validate(result *CertScanResult) ScanError
+	Validate(result *TargetScan) ScanError
 }
 
 type Validations = []Validation
 
-// Reporter will be implemented by modules interested in acting on ScanResults. They can be used to
-// audit the various certificates in use or alert on any violations that are detected.
+// Reporter will be implemented by modules interested in acting on ScanResults. Typically theses
+// report on Violations dected during the scan, but they have access to the entire TargetScan so
+// can report on any aspect
 type Reporter interface {
 
-	// Report will inspect the given result and determine if it should report on the outcome.
-	Report(ctx context.Context, result *CertScanResult)
+	// Report will inspect the given scan and determine if it should report on the outcome.
+	Report(ctx context.Context, scan *TargetScan)
 }
 
 type Reporters = []Reporter
