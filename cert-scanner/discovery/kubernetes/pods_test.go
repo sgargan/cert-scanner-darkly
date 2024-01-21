@@ -21,6 +21,12 @@ type PodTests struct {
 	suite.Suite
 }
 
+func (t *PodTests) SetupSuite() {
+	if _, _, err := GetClientset(); err != nil {
+		t.T().Skipf("cannot load k8s client, this may be a CI env. Please test his outside fo ci")
+	}
+}
+
 func (t *PodTests) SetupTest() {
 	t.MockPods = NewMockPods()
 }

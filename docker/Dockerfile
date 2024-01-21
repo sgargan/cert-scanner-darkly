@@ -1,11 +1,12 @@
 FROM golang:1.21 as deps
-WORKDIR /
-COPY cert-scanner/go.* /
+WORKDIR /cert-scanner
+COPY cert-scanner/go.* /cert-scanner
 RUN go mod download
 
 FROM deps as build
-COPY cert-scanner/ /
-RUN CGO_ENABLED=0 go build -o cert-scanner main/main.go
+WORKDIR /cert-scanner
+COPY . /cert-scanner
+RUN ls -al /cert-scanner && make generate test build
 
 FROM gcr.io/distroless/static-debian12 as runtime
 COPY --from=build /cert-scanner /bin/

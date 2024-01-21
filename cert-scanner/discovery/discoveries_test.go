@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/sgargan/cert-scanner-darkly/discovery/kubernetes"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 )
@@ -12,7 +13,10 @@ type DiscoveryTests struct {
 	suite.Suite
 }
 
-func (t *DiscoveryTests) SetupTest() {
+func (t *DiscoveryTests) SetupSuite() {
+	if _, _, err := kubernetes.GetClientset(); err != nil {
+		t.T().Skipf("cannot load k8s client, this may be a CI env. Please test his outside fo ci")
+	}
 	viper.Set("discovery.kubernetes.enabled", false)
 }
 

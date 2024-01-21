@@ -12,6 +12,12 @@ type DiscoveryTests struct {
 	suite.Suite
 }
 
+func (t *DiscoveryTests) SetupSuite() {
+	if _, _, err := GetClientset(); err != nil {
+		t.T().Skipf("cannot load k8s client, this may be a CI env. Please test his outside fo ci")
+	}
+}
+
 func (t *DiscoveryTests) TestDiscoveryLoadsConfig() {
 	viper.Set(config.DiscoveryK8sSource, "somecluster")
 	viper.Set(config.DiscoveryK8sNamespace, "somenamespace")

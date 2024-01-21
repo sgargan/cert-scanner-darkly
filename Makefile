@@ -43,7 +43,6 @@ cover: test
 	go tool cover -html=coverage.out
 
 build-image:
-	# docker buildx build --platform linux/amd64,linux/arm64 --push -t ${IMAGE} -f docker/Dockerfile .
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t ${IMAGE} -f docker/Dockerfile .
 
 build-local:
