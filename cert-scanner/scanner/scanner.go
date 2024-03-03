@@ -71,6 +71,7 @@ func (s *Scan) process(ctx context.Context, targets []*Target) error {
 				}
 				s.AddResult(result)
 			case <-ctx.Done():
+				slog.Warn("Context cancelled before all processing result gathered")
 				return
 			}
 		}
@@ -80,6 +81,7 @@ func (s *Scan) process(ctx context.Context, targets []*Target) error {
 		for _, processor := range s.processors {
 			processor.Process(ctx, target, results)
 		}
+		slog.Info("finished processing target", "target", target.Name, "address", target.Address)
 		return nil
 	})
 	err := group.Wait()
@@ -119,7 +121,7 @@ func (s *Scan) discover(ctx context.Context) ([]*Target, error) {
 func (s *Scan) validate(ctx context.Context) error {
 	group := utils.BatchProcess[*TargetScan](ctx, s.TargetScans, s.parallel, func(ctx context.Context, targetScan *TargetScan) error {
 		slog.Debug("validating target scan", "target", targetScan.Target.Name)
-		if !targetScan.Failed {
+		if targetScan.ShouldValidate() {
 			for _, validation := range s.validations {
 				targetScan.AddViolation(validation.Validate(targetScan))
 			}

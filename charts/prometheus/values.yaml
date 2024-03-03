@@ -1,0 +1,36 @@
+server:
+  enabled: true
+  name: scan-test-cluster
+
+  persistentVolume:
+    enabled: false
+
+  emptyDir:
+    sizeLimit: 1G
+
+  alertmanagers: []
+
+  replicaCount: 1
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  statefulSet:
+    enabled: false
+
+alertmanager:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false

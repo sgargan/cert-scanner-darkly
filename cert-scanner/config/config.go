@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	CanaryPort                       = "canary.port"
 	ConfigMetricsPort                = "metrics.port"
 	DiscoveryK8sSource               = "discovery.kubernetes.source"
 	DiscoveryK8sNamespace            = "discovery.kubernetes.namespace"

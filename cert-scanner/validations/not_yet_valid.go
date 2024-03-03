@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "github.com/sgargan/cert-scanner-darkly/types"
+	"golang.org/x/exp/slog"
 )
 
 type BeforeValidation struct{}
@@ -26,6 +27,7 @@ func (e *BeforeValidationError) Labels() map[string]string {
 	labels["type"] = "before"
 	labels["until_valid"] = e.untilValid.String()
 	labels["not_before"] = fmt.Sprintf("%d", e.notBefore.UnixMilli())
+	labels["not_before_date"] = e.notBefore.Format(time.RFC3339)
 	return labels
 }
 
@@ -33,11 +35,11 @@ func CreateBeforeValidation() *BeforeValidation {
 	return &BeforeValidation{}
 }
 
-// Validate will examine each cert in a scan result and check that it's not within the
-// configured time warning window before Before. If the cert will expire in the next 7 days
-// this validation will fail and raise an error.
+// Validate will examine each cert in a scan result raise a violation
+// if the cert will not become valid until some time in the future
 func (v *BeforeValidation) Validate(scan *TargetScan) ScanError {
-	result := scan.Results[0]
+	slog.Debug("validating cert of taget is currently valid", "target", scan.Target.Name)
+	result := scan.FirstSuccessful
 	for _, cert := range result.State.PeerCertificates {
 		untilValid := time.Until(cert.NotBefore)
 		if untilValid > 0 {

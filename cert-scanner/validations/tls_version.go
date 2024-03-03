@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	. "github.com/sgargan/cert-scanner-darkly/types"
+	"golang.org/x/exp/slog"
 )
 
 const MaxInt = ^int(0) >> 1
@@ -41,11 +42,13 @@ func CreateTLSVersionValidation(minVersion string) (*TLSVersionValidation, error
 
 // Validate will check that the tls version is not less than the minimum configured version
 func (v *TLSVersionValidation) Validate(scan *TargetScan) ScanError {
-	result := scan.Results[0]
+	slog.Debug("validating tls version of target", "target", scan.Target.Name)
+	result := scan.FirstSuccessful
 	if int(result.State.Version) < v.minVersion {
 		return &TLSVersionValidationError{
 			detectedVersion: toVersion(int(result.State.Version)),
 			minVersion:      toVersion(v.minVersion),
+			result:          result,
 		}
 	}
 	return nil

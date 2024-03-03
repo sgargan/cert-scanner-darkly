@@ -53,28 +53,11 @@ func (t *TestCA) WriteCerts() []string {
 }
 
 func (t *TestCA) CreateLeafCert(commonName string) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
-
-	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
-	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	serialNumber, err := CreateSerialNumber()
 	if err != nil {
 		log.Fatalf("Failed to generate serial number: %v", err)
 	}
-
-	return t.CreateLeafFromTemplate(&x509.Certificate{
-		Subject: pkix.Name{
-			Country:      []string{"US"},
-			Organization: []string{"Cert Scanner"},
-			CommonName:   commonName,
-		},
-		SerialNumber:          serialNumber,
-		NotBefore:             time.Now().Add(-10 * time.Second),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		IsCA:                  false,
-		BasicConstraintsValid: true,
-		DNSNames:              []string{"127.0.0.1", "localhost"},
-	})
+	return t.CreateLeafFromTemplate(CreateLeafTemplate(commonName, serialNumber))
 }
 
 func (t *TestCA) CreateLeafFromTemplate(template *x509.Certificate) (*x509.Certificate, []byte, *rsa.PrivateKey, error) {
@@ -144,6 +127,11 @@ func createCert(template *x509.Certificate, parent *CA, privateKey *rsa.PrivateK
 
 }
 
+func CreateSerialNumber() (*big.Int, error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	return rand.Int(rand.Reader, serialNumberLimit)
+}
+
 func createCA(template *x509.Certificate, parent *CA, privateKey *rsa.PrivateKey) (*CA, error) {
 	cert, certPem, err := createCert(template, parent, privateKey)
 	if err != nil {
@@ -173,5 +161,23 @@ func createCATemplate(commonName string, pathLength int) *x509.Certificate {
 		IsCA:                  true,
 		MaxPathLen:            pathLength,
 		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+	}
+}
+
+func CreateLeafTemplate(commonName string, serialNumber *big.Int) *x509.Certificate {
+	return &x509.Certificate{
+		Subject: pkix.Name{
+			Country:      []string{"US"},
+			Organization: []string{"Cert Scanner"},
+			CommonName:   commonName,
+		},
+		SerialNumber:          serialNumber,
+		NotBefore:             time.Now().Add(-10 * time.Second),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		IsCA:                  false,
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"127.0.0.1", "localhost"},
 	}
 }

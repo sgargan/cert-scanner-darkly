@@ -1,8 +1,0 @@
-apiVersion: v2
-name: cert-scanner
-description: |
-    Deploys cert-scanner used to scan and validate the usage of TLS certificates across the cluster.
-
-type: application
-version: 0.1.0
-appVersion: 0.1.0

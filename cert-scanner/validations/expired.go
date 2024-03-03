@@ -5,6 +5,7 @@ import (
 	"time"
 
 	. "github.com/sgargan/cert-scanner-darkly/types"
+	"golang.org/x/exp/slog"
 )
 
 type ExpiryValidation struct {
@@ -34,6 +35,7 @@ func (e *ExpiryValidationError) Labels() map[string]string {
 	labels["type"] = "expiry"
 	labels["warning_duration"] = e.warningDuration.String()
 	labels["not_after"] = fmt.Sprintf("%d", e.notAfter.UnixMilli())
+	labels["not_after_date"] = e.notAfter.Format(time.RFC3339)
 
 	return labels
 }
@@ -47,6 +49,7 @@ func CreateExpiryValidation(warningDuration time.Duration) *ExpiryValidation {
 // and check that it's not within the configured time warning window before expiry. If the cert
 // expiry falls in the the warning window, this validation will fail and raise a validation error
 func (v *ExpiryValidation) Validate(scan *TargetScan) ScanError {
+	slog.Debug("validating cert of target will not expire soon", "target", scan.Target.Name, "warning_duration", v.warningDuration.String())
 	result := scan.FirstSuccessful
 	for _, cert := range result.State.PeerCertificates {
 		if time.Until(cert.NotAfter) < v.warningDuration {

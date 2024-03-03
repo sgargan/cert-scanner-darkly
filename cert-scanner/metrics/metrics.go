@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 
 	"github.com/hashicorp/go-metrics"
 	"github.com/hashicorp/go-metrics/prometheus"
@@ -63,6 +64,21 @@ func (m *MetricsServer) Start() error {
 
 	mux := &http.ServeMux{}
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/health", func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte("ok"))
+	})
+
+	for path, handler := range map[string]func(http.ResponseWriter, *http.Request){
+		"/debug/pprof/":        pprof.Index,
+		"/debug/pprof/heap":    pprof.Index,
+		"/debug/pprof/cmdline": pprof.Cmdline,
+		"/debug/pprof/profile": pprof.Profile,
+		"/debug/pprof/symbol":  pprof.Symbol,
+		"/debug/pprof/trace":   pprof.Trace,
+	} {
+		mux.HandleFunc(path, handler)
+	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", m.port))
 	if err != nil {

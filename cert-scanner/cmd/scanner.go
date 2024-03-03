@@ -28,7 +28,7 @@ type ScanCommand struct {
 
 func CreateScanCommand() *ScanCommand {
 	cmd := &cobra.Command{
-		Use: "cert-scan",
+		Use: "scan",
 		Run: Run,
 	}
 

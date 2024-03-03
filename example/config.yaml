@@ -1,22 +1,44 @@
+# cert-scanner-darkly config
+
+# debug will set logging to verbose  
 debug: true
 
+# scan config
 scan:
+  # repeat scan every interval when true or run once and exit
   repeated: true
+  # how often to scan the cluster
   interval: 10m
+  # max time a scan run should take
   timeout: 2m
 
+# service discovery mechanism to enable
 discovery:
+
+  # kubernetes will connect to the cluster in the current context
   kubernetes:
+    # source will be appended as a label to each metric emitted for the cluster
     source: some-cluster
 
+# validations verified against the certs of each discovered service.
 validations:
   expiry:
+    # expiry checks that certificate will not expire in the given warning window
+    # duration from now. 
     warning_window: 72h
   tls-version:
+    # this is the min TLS version that the server must be using.
     min_version: 1.3
+
   trust-chain:
+    # trust chain validates that discovered services have certs that 
+    # are issued by CAs with certificates in the given paths. 
     ca:
       paths: 
       - /a/ca/path
       - /b/ca/path
       - /c/ca/path
+
+# canary config
+canary:
+  port: 8080

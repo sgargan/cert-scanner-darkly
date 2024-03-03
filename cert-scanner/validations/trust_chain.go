@@ -81,7 +81,8 @@ func CreateTrustChainValidation(rootCAs *x509.CertPool) *TrustChainValidation {
 // Validate will verify the cert chain from the scan result using the configured pool
 // of root CA certs ignoring any ServerNames in the certs.
 func (v *TrustChainValidation) Validate(scan *TargetScan) ScanError {
-	result := scan.Results[0]
+	slog.Debug("validating trust of target", "target", scan.Target.Name)
+	result := scan.FirstSuccessful
 	if v.rootCAs == nil {
 		return nil
 	}

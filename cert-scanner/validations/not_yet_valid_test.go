@@ -47,16 +47,17 @@ func (t *BeforeValidationTests) TestLabels() {
 	}
 
 	t.Equal(map[string]string{
-		"address":     "172.1.2.34:8080",
-		"common_name": "somehost",
-		"failed":      "true",
-		"foo":         "bar",
-		"id":          fmt.Sprintf("%x", cert.SerialNumber),
-		"not_before":  "1700088420000",
-		"source":      "SomePod-acdf-bdfe",
-		"source_type": "kubernetes",
-		"type":        "before",
-		"until_valid": "123h0m0s",
+		"address":         "172.1.2.34:8080",
+		"common_name":     "somehost",
+		"failed":          "true",
+		"foo":             "bar",
+		"id":              fmt.Sprintf("%x", cert.SerialNumber),
+		"not_before":      "1700088420000",
+		"not_before_date": "2023-11-15T22:47:00Z",
+		"source":          "SomePod-acdf-bdfe",
+		"source_type":     "kubernetes",
+		"type":            "before",
+		"until_valid":     "123h0m0s",
 	}, violation.Labels())
 }
 

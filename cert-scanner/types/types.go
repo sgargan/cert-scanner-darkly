@@ -60,7 +60,9 @@ func NewTargetScanResult(target *Target) *TargetScan {
 
 // AddViolation adds a detected violation for one ScanResult to the target scan
 func (t *TargetScan) AddViolation(violation ScanError) {
-	t.Violations = append(t.Violations, violation)
+	if violation != nil {
+		t.Violations = append(t.Violations, violation)
+	}
 }
 
 // Add the result of scanning the target with a single protocol and version to the TargetScan
@@ -73,6 +75,10 @@ func (t *TargetScan) Add(r *ScanResult) {
 	if !r.Failed && t.FirstSuccessful == nil {
 		t.FirstSuccessful = r
 	}
+}
+
+func (t *TargetScan) ShouldValidate() bool {
+	return !t.Failed && t.FirstSuccessful != nil
 }
 
 // ScanResult is the state detected from a single scan of a target with a specific TLS
@@ -121,14 +127,6 @@ func (s *ScanResult) Labels() map[string]string {
 		copy["common_name"] = s.State.PeerCertificates[0].Subject.CommonName
 	}
 	return copy
-}
-
-// Fail the scan with the given error
-func (s *ScanResult) Fail(err ScanError) {
-	if err != nil {
-		s.Failed = true
-		s.Error = err
-	}
 }
 
 type Factory[T comparable] func() (T, error)

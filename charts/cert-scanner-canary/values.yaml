@@ -1,0 +1,25 @@
+# Default values for cert-scanner-canary.
+replicaCount: 1
+
+canaryConfig:
+  canary:
+    port: 8080
+
+image:
+  url: docker.io/stevegargan/cert-scanner-canary-darkly
+  pullPolicy: IfNotPresent
+  tag: 0.0.2
+
+service:
+  port: 8080
+
+resources: 
+  requests:
+    cpu: 100m
+    memory: 30Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

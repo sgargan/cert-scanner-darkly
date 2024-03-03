@@ -1,0 +1,7 @@
+apiVersion: v2
+name: cert-scanner-canary
+description: |
+  Deploys a webapp with an expired self signed cert.
+type: application
+version: 0.1.0
+appVersion: 0.1.0

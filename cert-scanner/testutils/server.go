@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"crypto"
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
@@ -62,9 +63,13 @@ func WithTestServerVersion(tlsVersion uint16, port int, handler func(testServer 
 		return err
 	}
 
+	return WithTestServerFromConfig(CreateTestTLSConfig(tlsVersion, certPem, key), port, handler)
+}
+
+func CreateTestTLSConfig(tlsVersion uint16, certPem []byte, key crypto.PrivateKey) *tls.Config {
 	raw, _ := pem.Decode(certPem)
 
-	return WithTestServerFromConfig(&tls.Config{
+	return &tls.Config{
 		Certificates: []tls.Certificate{
 			{
 				Certificate: [][]byte{raw.Bytes},
@@ -79,7 +84,7 @@ func WithTestServerVersion(tlsVersion uint16, port int, handler func(testServer 
 			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 		},
-	}, port, handler)
+	}
 }
 
 func (t *TestTlsServer) Stop() {

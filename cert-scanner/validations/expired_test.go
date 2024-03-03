@@ -54,6 +54,7 @@ func (t *ExpiryValidationTests) TestLabels() {
 		"foo":              "bar",
 		"id":               fmt.Sprintf("%x", cert.SerialNumber),
 		"not_after":        "1700088420000",
+		"not_after_date":   "2023-11-15T22:47:00Z",
 		"source":           "SomePod-acdf-bdfe",
 		"source_type":      "kubernetes",
 		"type":             "expiry",

@@ -50,7 +50,7 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 }
 
 func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {
-	slog.Debug(" connecting to target", "target", target.Name, "address", target.Address, "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", config.MaxVersion)
+	slog.Debug("connecting to target", "target", target.Name, "address", target.Address, "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", tls.VersionName(config.MaxVersion))
 	dialer := &net.Dialer{}
 	rawConn, err := dialer.DialContext(ctx, "tcp", target.Address.String())
 	if err != nil {
@@ -75,7 +75,6 @@ func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target
 func getConfig(cipher, version uint16) *tls.Config {
 	// skip validation here so we as not to fail due errors like the servername or trust chain verification.
 	// these will get validated later
-	slog.Debug("cipher name ", "cipher", tls.CipherSuiteName(cipher), "version", tls.VersionName(version))
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		CipherSuites:       []uint16{cipher},
