@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"os"
+	"strings"
 
 	. "github.com/sgargan/cert-scanner-darkly/types"
 	"golang.org/x/exp/slog"
@@ -14,10 +16,11 @@ import (
 )
 
 const (
-	Kubernetes = "kubernetes"
-	PortName   = "port_name"
-	Namespace  = "namespace"
-	Container  = "container"
+	Kubernetes        = "kubernetes"
+	PortName          = "port_name"
+	Namespace         = "namespace"
+	Container         = "container"
+	ScannerPodEnvName = "CERT_SCANNER_POD_NAME"
 )
 
 type PodsInterface interface {
@@ -25,10 +28,10 @@ type PodsInterface interface {
 }
 
 type PodDiscovery struct {
-	source           string
-	pods             PodsInterface
-	labelKeys        []string
-	ignoreContainers map[string]string
+	source    string
+	pods      PodsInterface
+	labelKeys []string
+	ignore    map[string]string
 }
 
 // Creates a new Pod discovery instance to discover scan candidates via the k8s cluster with the given source
@@ -46,11 +49,17 @@ func CreatePodDiscovery(source string, labelKeys []string, ignoreContainers []st
 		ignore[container] = ""
 	}
 
+	// pull the podname from the env and remove the pod hash
+	scannerPodName := os.Getenv(ScannerPodEnvName)
+	if scannerPodName != "" {
+		ignore[podSuffix(scannerPodName)] = ""
+	}
+
 	return &PodDiscovery{
-		source:           source,
-		pods:             pods,
-		labelKeys:        labelKeys,
-		ignoreContainers: ignore,
+		source:    source,
+		pods:      pods,
+		labelKeys: labelKeys,
+		ignore:    ignore,
 	}, nil
 }
 
@@ -67,6 +76,9 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 	slog.Debug("retrieved pods from api", "source", d.source, "pods", len(pods.Items))
 	numTargets := 0
 	for _, pod := range pods.Items {
+		if d.ignorePod(pod.Name) {
+			continue
+		}
 		podIP := pod.Status.PodIP
 		ip, err := netip.ParseAddr(podIP)
 		if err != nil {
@@ -74,38 +86,51 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 			continue
 		}
 		for _, container := range pod.Spec.Containers {
-			if _, ignored := d.ignoreContainers[container.Name]; !ignored {
-				for _, port := range container.Ports {
+			for _, port := range container.Ports {
 
-					labels := Labels{
-						PortName:  port.Name,
-						Namespace: pod.ObjectMeta.Namespace,
-						Container: container.Name,
-					}
+				labels := Labels{
+					PortName:  port.Name,
+					Namespace: pod.ObjectMeta.Namespace,
+					Container: container.Name,
+				}
 
-					for _, key := range d.labelKeys {
-						if label, ok := pod.ObjectMeta.Labels[key]; ok {
-							labels[key] = label
-						}
+				for _, key := range d.labelKeys {
+					if label, ok := pod.ObjectMeta.Labels[key]; ok {
+						labels[key] = label
 					}
+				}
 
-					if port.Protocol == v1.ProtocolTCP {
-						numTargets++
-						targets <- &Target{
-							Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
-							Metadata: Metadata{
-								Name:       pod.ObjectMeta.Name,
-								Source:     d.source,
-								SourceType: Kubernetes,
-								Labels:     labels,
-							},
-						}
-						slog.Debug("created target from pod", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP, "port", port.ContainerPort)
+				if port.Protocol == v1.ProtocolTCP {
+					numTargets++
+					targets <- &Target{
+						Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
+						Metadata: Metadata{
+							Name:       pod.ObjectMeta.Name,
+							Source:     d.source,
+							SourceType: Kubernetes,
+							Labels:     labels,
+						},
 					}
+					slog.Debug("created target from pod", "namespace", pod.Namespace, "pod", pod.Name, "ip", podIP, "port", port.ContainerPort)
 				}
 			}
 		}
 	}
 	slog.Info("finished pod discovery", "pods", len(pods.Items), "targets", numTargets)
 	return nil
+}
+
+func (d *PodDiscovery) ignorePod(podname string) bool {
+	podname = podSuffix(podname)
+	_, ignored := d.ignore[podname]
+	if ignored {
+		slog.Debug("pod matches ignore", "podname", podname)
+	}
+	return ignored
+}
+
+// podsuffix trims the idenifier from a podname for filtering
+func podSuffix(podname string) string {
+	parts := strings.Split(podname, "-")
+	return strings.Join(parts[:len(parts)-1], "-")
 }

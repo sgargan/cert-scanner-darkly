@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"os"
 	"testing"
 
 	"github.com/sgargan/cert-scanner-darkly/discovery/kubernetes/mocks"
@@ -86,7 +87,7 @@ func (t *PodTests) TestDiscoversValidPods() {
 
 func (t *PodTests) TestExtractsLabels() {
 	t.AddPods("some-pod", "some-namespace", map[string]string{"foo": "bar", "bar": "baz", "app": "some-app"},
-		v1.PodIP{IP: "10.0.1.1"}, v1.ContainerPort{Name: "some-port", ContainerPort: 8080, Protocol: v1.ProtocolTCP},
+		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
 	)
 
 	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{"foo", "app"}, []string{}, t.Build())
@@ -117,17 +118,37 @@ func (t *PodTests) TestIssueLoadingPodsRaisesError() {
 }
 
 func (t *PodTests) TestIgnoresPods() {
-	t.AddPods("some-pod", "some-namespace", map[string]string{},
-		v1.PodIP{IP: "10.0.1.1"}, v1.ContainerPort{},
+	t.AddPods("some-pod-1234abcd", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
 	)
-	t.AddPods("some-pod", "some-namespace", map[string]string{},
-		v1.PodIP{IP: "10.0.1.1"}, v1.ContainerPort{},
+	t.AddPods("some-pod-1234abcd", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
 	)
 
-	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, []string{"somecontainer"}, t.Build())
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, []string{"some-pod"}, t.Build())
 	targets := make(chan *Target, 2)
 	t.NoError(podDiscovery.Discover(context.Background(), targets))
 	t.Equal(0, len(targets))
+}
+
+func (t *PodTests) TestIgnoresScanner() {
+	os.Setenv(ScannerPodEnvName, "cert-scanner-12345fed")
+	t.AddPods("cert-scanner-1234abcd", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
+	)
+
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, []string{}, t.Build())
+	targets := make(chan *Target, 2)
+	t.NoError(podDiscovery.Discover(context.Background(), targets))
+	t.Equal(0, len(targets))
+}
+
+func createContainerPort(port int32) v1.ContainerPort {
+	return v1.ContainerPort{
+		Name:          "some-port",
+		Protocol:      v1.ProtocolTCP,
+		ContainerPort: port,
+	}
 }
 
 type MockPods struct {

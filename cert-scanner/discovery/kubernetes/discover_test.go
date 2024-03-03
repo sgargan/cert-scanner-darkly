@@ -30,7 +30,7 @@ func (t *DiscoveryTests) TestDiscoveryLoadsConfig() {
 	discovery := d.(*PodDiscovery)
 	t.Equal("somecluster", discovery.source)
 	t.Equal([]string{"foo", "bar"}, discovery.labelKeys)
-	t.Equal(map[string]string{"somecontainer": ""}, discovery.ignoreContainers)
+	t.Equal(map[string]string{"somecontainer": ""}, discovery.ignore)
 }
 
 func TestDiscoveryTests(t *testing.T) {

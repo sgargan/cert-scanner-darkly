@@ -13,7 +13,7 @@ type DiscoveryTests struct {
 	suite.Suite
 }
 
-func (t *DiscoveryTests) SetupSuite() {
+func (t *DiscoveryTests) SetupTest() {
 	if _, _, err := kubernetes.GetClientset(); err != nil {
 		t.T().Skipf("cannot load k8s client, this may be a CI env. Please test his outside fo ci")
 	}
