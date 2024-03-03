@@ -1,4 +1,4 @@
-VERSION=0.0.2
+VERSION=0.0.1
 REPO= docker.io
 IMAGE_PATH=stevegargan/cert-scanner-darkly
 IMAGE=${REPO}/${IMAGE_PATH}:${VERSION}
@@ -13,6 +13,8 @@ GOLDFLAGS += -s -w
 GOFLAGS = -ldflags "$(GOLDFLAGS)"
 GOOS = $(shell go version | awk '{split($$4, a, "/"); print a[1]}')
 
+CHART = cert-scanner
+
 IMAGE_ARGS += --build-arg BUILD_NUMBER=$(BUILD_NUMBER)
 IMAGE_ARGS += --build-arg GIT_COMMIT=$(GIT_COMMIT)
 IMAGE_ARGS := --build-arg VERSION=$(VERSION)
@@ -21,11 +23,30 @@ IMAGE_ARGS += --label "com.qualtrics.build-info.build-time=$(BUILD_TIME)"
 
 NAMESPACE ?= security-scanners
 
+KO_DOCKER_REPO=docker.io
+
+.PHONY: local-dev deploy-local
+.PHONY: deploy-remote
+
+local-dev: VERSION=dev
+local-dev: KO_DOCKER_REPO=ko.local
+local-dev:
+	ko build github.com/sgargan/cert-scanner-darkly --tags $(VERSION) --base-import-paths -L
+	$(eval IMAGE:=$(KO_DOCKER_REPO)/cert-scanner-darkly:$(VERSION))
+	kind load docker-image --name cert-scanner $(IMAGE)
+	$(call deploy)
+
+local-canary: VERSION=dev
+local-canary: KO_DOCKER_REPO=ko.local
+local-canary: CHART=cert-scanner-canary
+local-canary:
+	$(call deploy)
+
 deps:
 	cd cert-scanner && go mod download
 
 build: 
-	cd cert-scanner && go build -o build/cert-scanner -ldflags "$(GOLDFLAGS)" main/main.go
+	cd cert-scanner && go build -o build/cert-scanner -ldflags "$(GOLDFLAGS)" main.go
 
 install-mockery:
 	@{ [ -x ${GOPATH}/bin/mockery ] || go install github.com/vektra/mockery/v2@v2.35.2; }
@@ -45,16 +66,12 @@ cover: test
 build-image:
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t ${IMAGE} -f docker/Dockerfile .
 
-build-local:
-	docker build -t ${IMAGE} --load -f docker/Dockerfile .
-	kind load docker-image ${IMAGE} --name cert-scanner
+deploy-remote:
+	$(call deploy)
 
-publish:
-	docker push ${IMAGE}
-
-deploy:
+define deploy
+	$(eval URL:=$(KO_DOCKER_REPO)/cert-scanner-darkly)
 	{ kubectl create namespace ${NAMESPACE} || true ;}
-	helm upgrade --install -n ${NAMESPACE} cert-scanner helm --values helm/values.yaml
-	kubectl rollout restart deployment -n ${NAMESPACE}  cert-scanner
-
-.PHONY: build build-image
+	helm upgrade --install -n ${NAMESPACE} $(CHART) charts/$(CHART) --values charts/cert-scanner/values.yaml --set image.url=$(URL) --set image.tag=$(VERSION)
+	kubectl rollout restart deployment -n ${NAMESPACE} $(CHART)
+endef

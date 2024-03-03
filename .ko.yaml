@@ -1,0 +1,8 @@
+builds:
+  - id: cert-scanner-darkly
+    dir: ./cert-scanner
+    ldflags:
+      - -s -w
+defaultPlatforms:
+- linux/arm64
+- linux/amd64
