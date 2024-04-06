@@ -17,9 +17,13 @@ const (
 	DiscoveryK8sNamespace            = "discovery.kubernetes.namespace"
 	DiscoveryK8sIgnore               = "discovery.kubernetes.ignore"
 	DiscoveryK8sKeys                 = "discovery.kubernetes.keys"
+	ProcessorsTlsEnabled             = "processors.tls-state.enabled"
 	ValidationsExpiryWindow          = "validations.expiry.warning_window"
 	ValidationsTrustChainCACertPaths = "validations.trust-chain.ca_paths"
 	ValidationsTLSMinVersion         = "validations.tls_version.min_version"
+	ReportersMetricsExpiry           = "reporters.metrics.expiry"
+	ReportersLoggingEnabled          = "reporters.logging.enabled"
+	ReportersMetricsEnabled          = "reporters.metrics.enabled"
 	Interval                         = "scan.interval"
 	Timeout                          = "scan.timeout"
 	Repeated                         = "scan.repeated"
@@ -47,16 +51,20 @@ func LoadConfiguration() error {
 		return err
 	}
 
+	if viper.GetDuration("reporters.metrics.expiry") == 0 {
+		viper.Set("reporters.metrics.expiry", viper.GetDuration(Interval)*2)
+	}
+
 	return nil
 }
 
 func setDefaults() {
-	viper.Set("processors.tls-state.enabled", true)
+	viper.Set(ProcessorsTlsEnabled, true)
 	viper.SetDefault(ValidationsExpiryWindow, "168h")
 	viper.SetDefault(ValidationsTrustChainCACertPaths, []string{})
 	viper.SetDefault(ValidationsTLSMinVersion, "1.2")
-	viper.SetDefault("reporters.logging.enabled", true)
-	viper.SetDefault("reporters.metrics.enabled", true)
+	viper.SetDefault(ReportersLoggingEnabled, true)
+	viper.SetDefault(ReportersMetricsEnabled, true)
 }
 
 func checkDuration(key string, duration time.Duration) error {

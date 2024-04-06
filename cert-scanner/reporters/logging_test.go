@@ -30,6 +30,7 @@ type LoggingTests struct {
 
 func (t *LoggingTests) SetupTest() {
 	testlog, err := os.CreateTemp("", "testlog")
+	t.NoError(err)
 	t.logFile = testlog.Name()
 
 	viper.Set("reporters.logging.file", t.logFile)
@@ -61,7 +62,8 @@ func (t *LoggingTests) TestReportsSuccessfulResultToLog() {
 		"id":               "1020304",
 		"level":            "INFO",
 		"msg":              "violation",
-		"not_after":        "1673740800000",
+		"not_after":        "1673139600000",
+		"not_after_date":   "2023-01-08T01:00:00Z",
 		"source":           "SomePod-acdf-bdfe",
 		"source_type":      "kubernetes",
 		"type":             "expiry",
@@ -85,7 +87,8 @@ func (t *LoggingTests) TestReportsFailingResultToLog() {
 		"id":               "1020304",
 		"level":            "INFO",
 		"msg":              "violation",
-		"not_after":        "1673740800000",
+		"not_after":        "1673139600000",
+		"not_after_date":   "2023-01-08T01:00:00Z",
 		"source":           "SomePod-acdf-bdfe",
 		"source_type":      "kubernetes",
 		"type":             "expiry",

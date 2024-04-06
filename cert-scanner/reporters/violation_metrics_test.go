@@ -42,19 +42,20 @@ func (t *MetricsReporterTests) TestReportsViolationResultAsMetric() {
 	result, err := createTestViolation()
 	t.sut.Report(context.Background(), t.testScan.WithScanResult(result).WithViolation(err).Build())
 
-	t.Equal(t.receivedValidationLabels,
-		map[string]string{
-			"address":          "172.1.2.34:8080",
-			"common_name":      "somehost",
-			"failed":           "true",
-			"foo":              "bar",
-			"id":               "1020304",
-			"not_after":        "1673740800000",
-			"source":           "SomePod-acdf-bdfe",
-			"source_type":      "kubernetes",
-			"type":             "expiry",
-			"warning_duration": "168h0m0s",
-		},
+	t.Equal(map[string]string{
+		"address":          "172.1.2.34:8080",
+		"common_name":      "somehost",
+		"failed":           "true",
+		"foo":              "bar",
+		"id":               "1020304",
+		"not_after":        "1673139600000",
+		"not_after_date":   "2023-01-08T01:00:00Z",
+		"source":           "SomePod-acdf-bdfe",
+		"source_type":      "kubernetes",
+		"type":             "expiry",
+		"warning_duration": "168h0m0s",
+	},
+		t.receivedValidationLabels,
 	)
 }
 
@@ -70,7 +71,7 @@ func (t *MetricsReporterTests) mockValidationMetric(labels map[string]string) {
 func createTestViolation() (*ScanResult, ScanError) {
 	warning := time.Duration(7 * 24 * time.Hour)
 	expiry, _ := time.Parse(time.RFC3339, "2023-01-15T00:00:00Z")
-	expiry.Add(-1*warning + (time.Hour))
+	expiry = expiry.Add(-1*warning + (time.Hour))
 
 	result := NewScanResult()
 	result.Failed = true

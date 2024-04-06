@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/go-metrics"
 	"github.com/hashicorp/go-metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -50,9 +51,9 @@ func ConfigureMetrics(port int) *MetricsServer {
 }
 
 func (m *MetricsServer) Start() error {
-	// potentially we can support other metrics sinks via config
 	sink, err := prometheus.NewPrometheusSinkFrom(prometheus.PrometheusOpts{
-		Name: MetricsName,
+		Expiration: viper.GetDuration("reporting.metrics.expiry"),
+		Name:       MetricsName,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating metrics sink: %v", err)
