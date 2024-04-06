@@ -44,7 +44,7 @@ func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValid
 		}
 
 		decodedPem, _ := pem.Decode(certBytes)
-		if err != nil || decodedPem == nil {
+		if decodedPem == nil {
 			return nil, fmt.Errorf("error decoding pem from: %v", path)
 		}
 		certs, err := x509.ParseCertificates(decodedPem.Bytes)

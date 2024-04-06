@@ -28,6 +28,9 @@ KO_DOCKER_REPO=docker.io
 .PHONY: local-dev deploy-local
 .PHONY: deploy-remote
 
+bootstrap:
+	kind create cluster --name cert-scanner
+
 local-dev: VERSION=dev
 local-dev: KO_DOCKER_REPO=ko.local
 local-dev:

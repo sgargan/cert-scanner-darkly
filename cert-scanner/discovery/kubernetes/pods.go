@@ -132,5 +132,9 @@ func (d *PodDiscovery) ignorePod(podname string) bool {
 // podsuffix trims the idenifier from a podname for filtering
 func podSuffix(podname string) string {
 	parts := strings.Split(podname, "-")
-	return strings.Join(parts[:len(parts)-1], "-")
+
+	if len(parts) > 1 {
+		return strings.Join(parts[:len(parts)-2], "-")
+	}
+	return podname
 }

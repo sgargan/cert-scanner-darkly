@@ -118,10 +118,10 @@ func (t *PodTests) TestIssueLoadingPodsRaisesError() {
 }
 
 func (t *PodTests) TestIgnoresPods() {
-	t.AddPods("some-pod-1234abcd", "some-namespace", map[string]string{},
+	t.AddPods("some-pod-7475bbf4d4-nr79n", "some-namespace", map[string]string{},
 		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
 	)
-	t.AddPods("some-pod-1234abcd", "some-namespace", map[string]string{},
+	t.AddPods("some-pod-7475bbf4d4-nr79n", "some-namespace", map[string]string{},
 		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
 	)
 
