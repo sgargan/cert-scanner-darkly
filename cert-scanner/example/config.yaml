@@ -10,11 +10,13 @@ discovery:
 validations:
   expiry:
     warning_window: 72h
-  tls-version:
+  tls_version:
     min_version: 1.3
-  trust-chain:
+  not_yet_valid:
+    enabled: true
+  trust_chain:
     ca:
-       paths: 
+       paths:
        - /a/ca/path
        - /b/ca/path
        - /c/ca/path

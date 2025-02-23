@@ -43,7 +43,7 @@ func CreateScanCommand() *ScanCommand {
 }
 
 func Run(cmd *cobra.Command, args []string) {
-	server := metrics.ConfigureMetrics(viper.GetInt("metrics.port"))
+	server := metrics.ConfigureMetrics(viper.GetInt(config.MetricsPort))
 	if err := server.Start(); err != nil {
 		logExit("error stopping metrics server", "err", err)
 	}
@@ -65,14 +65,21 @@ func repeatedly() {
 	ticker := time.NewTicker(interval)
 	running := false
 	scans := 0
+	var previous *scanner.Scan
 	for {
 		if !running {
 			scans += 1
 			running = true
 			slog.Info("running scan", "scans", scans)
-			scan(ctx)
+
+			current, err := scan(ctx)
+			if err != nil {
+				slog.Debug("Error running scan", "scans", scans, "err", err)
+			}
 			slog.Debug("scan complete, waiting for interval before next scan", "scans", scans, "interval", interval.String())
 			running = false
+
+			compareScans(previous, current)
 		} else {
 			slog.Info("previous scan is still running", "scans", scans)
 		}
@@ -92,12 +99,16 @@ func once() {
 	scan(context.Background())
 }
 
-func scan(ctx context.Context) {
+func scan(ctx context.Context) (*scanner.Scan, error) {
 	timeout := viper.GetDuration(config.Timeout)
 	if timeout != 0 {
 		ctx, _ = utils.CreateSignalledContextWithContext(ctx, timeout, syscall.SIGKILL)
 	}
-	scanner.PerformScan(ctx)
+	return scanner.PerformScan(ctx)
+}
+
+func compareScans(previous, current *scanner.Scan) {
+
 }
 
 func configureDefaultFlags(cmd *cobra.Command) {

@@ -61,7 +61,7 @@ func (tc *TestCertificate) Build() (cert *x509.Certificate, err error) {
 type TestCertResult struct {
 	target    *Target
 	err       ScanError
-	violation ScanError
+	violation func(*ScanResult) ScanError
 	duration  time.Duration
 	result    *ScanResult
 	tls.ConnectionState
@@ -89,7 +89,7 @@ func (tc *TestCertResult) WithError(err ScanError) *TestCertResult {
 	return tc
 }
 
-func (tc *TestCertResult) WithViolation(violation ScanError) *TestCertResult {
+func (tc *TestCertResult) WithViolation(violation func(result *ScanResult) ScanError) *TestCertResult {
 	tc.violation = violation
 	return tc
 }
@@ -132,11 +132,12 @@ func (tc *TestCertResult) Build() *TargetScan {
 	result.Duration = tc.duration
 
 	if tc.violation != nil {
-		scan.AddViolation(tc.violation)
+		scan.AddViolation(tc.violation(result))
 		result.Failed = true
 	}
 
 	scan.Add(result)
+	result.Duration = tc.duration
 	return scan
 }
 
@@ -144,9 +145,9 @@ func TestTarget() *Target {
 	return &Target{
 		Address: netip.MustParseAddrPort("172.1.2.34:8080"),
 		Metadata: Metadata{
-			Labels:     map[string]string{"foo": "bar"},
+			Labels:     map[string]string{"foo": "bar", "pod": "somepod-acdf-bdfe"},
 			SourceType: "kubernetes",
-			Source:     "SomePod-acdf-bdfe",
+			Source:     "some-cluster",
 		},
 	}
 }

@@ -22,7 +22,7 @@ validations:
     min_version: 1.3
   trust:
     ca:
-       paths: 
+       paths:
        - /a/ca/path
        - /b/ca/path
        - /c/ca/path
@@ -45,7 +45,7 @@ reporters:
 
 func (t *ConfigTests) TestLoadEmptyConfig() {
 	t.runTestCase("empty config", "")
-	t.True(viper.GetBool("reporters.metrics.enabled"))
+	t.True(viper.GetBool("metrics.enabled"))
 	t.True(viper.GetBool("reporters.logging.enabled"))
 	t.Equal("1.2", viper.GetString("validations.tls_version.min_version"))
 	t.Equal(t.ParseDuration("168h"), viper.GetDuration("validations.expiry.warning_window"))
@@ -53,7 +53,7 @@ func (t *ConfigTests) TestLoadEmptyConfig() {
 
 func (t *ConfigTests) TestNoConfig() {
 	t.runTestCase("empty config", "")
-	t.True(viper.GetBool("reporters.metrics.enabled"))
+	t.True(viper.GetBool("metrics.enabled"))
 	t.True(viper.GetBool("reporters.logging.enabled"))
 	t.Equal("1.2", viper.GetString("validations.tls_version.min_version"))
 	t.Equal(t.ParseDuration("168h"), viper.GetDuration("validations.expiry.warning_window"))

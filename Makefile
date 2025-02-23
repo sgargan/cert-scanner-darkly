@@ -29,7 +29,7 @@ KO_DOCKER_REPO=docker.io
 .PHONY: deploy-remote
 
 bootstrap:
-	kind create cluster --name cert-scanner
+	./scripts/bootstrap.sh
 
 local-dev: VERSION=dev
 local-dev: KO_DOCKER_REPO=ko.local
@@ -48,20 +48,20 @@ local-canary:
 deps:
 	cd cert-scanner && go mod download
 
-build: 
+build:
 	cd cert-scanner && go build -o build/cert-scanner -ldflags "$(GOLDFLAGS)" main.go
 
 install-mockery:
 	@{ [ -x ${GOPATH}/bin/mockery ] || go install github.com/vektra/mockery/v2@v2.35.2; }
 
 generate: install-mockery
-	go generate ./... 
+	cd cert-scanner && go generate ./...
 
 install-tparse:
 	@{ [ -x ${GOPATH}/bin/tparse ] || go install github.com/mfridman/tparse@latest ;}
 
 test: install-tparse
-	cd cert-scanner && go test ./... -json -v -p 1 -count=1  | tparse -follow -all
+	cd cert-scanner && go test ./... -json -v -p 1 -count=1 -coverprofile=coverage.out | tparse -follow -all
 
 cover: test
 	go tool cover -html=coverage.out
@@ -69,7 +69,7 @@ cover: test
 build-image:
 	docker buildx build --platform linux/amd64,linux/arm64 --push -t ${IMAGE} -f docker/Dockerfile .
 
-deploy-remote:
+deploy:
 	$(call deploy)
 
 define deploy

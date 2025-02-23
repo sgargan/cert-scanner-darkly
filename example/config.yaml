@@ -1,7 +1,10 @@
-# cert-scanner-darkly config
+# cert-scanner-darkly example config values
 
-# debug will set logging to verbose  
+# debug will set logging to verbose
 debug: true
+
+# enable pprof endpoints for debugging
+pprof: false
 
 # scan config
 scan:
@@ -16,28 +19,58 @@ scan:
 discovery:
 
   # kubernetes will connect to the cluster in the current context
+  # Note that it will need network connectivity to all pods to be able to scan correctly
+  # please setup NetworkPolicies appropriately to allow access.
   kubernetes:
-    # source will be appended as a label to each metric emitted for the cluster
+    # source will be appended as a label to in each reporter
     source: some-cluster
+
+    # additional labels that are collected into scan results based on the source type
+    # that should be available in reporters
+    additionalLabels:
+      - pod
+      - namespace
 
 # validations verified against the certs of each discovered service.
 validations:
   expiry:
     # expiry checks that certificate will not expire in the given warning window
-    # duration from now. 
+    # duration from now.
     warning_window: 72h
-  tls-version:
+    ignore:
+      - tls-handshake
+      - connection-error
+  tls_version:
     # this is the min TLS version that the server must be using.
     min_version: 1.3
-
-  trust-chain:
-    # trust chain validates that discovered services have certs that 
-    # are issued by CAs with certificates in the given paths. 
+    ignore:
+      - tls-handshake
+      - connection-error
+  not_yet_valid:
+    ignore:
+      - tls-handshake
+      - connection-error
+  trust_chain:
+    # trust chain validates that discovered services have certs that
+    # are issued by CAs with certificates in the given paths.
     ca:
-      paths: 
+      paths:
       - /a/ca/path
       - /b/ca/path
       - /c/ca/path
+    ignore:
+      - tls-handshake
+      - connection-error
+
+metrics:
+  enabled: true
+  port: 9253
+
+
+reporters:
+  logging:
+    enabled: true
+
 
 # canary config
 canary:

@@ -55,6 +55,10 @@ func (s *Scan) AddResult(result *TargetScan) {
 	s.TargetScans = append(s.TargetScans, result)
 }
 
+func (s *Scan) Results() []*TargetScan {
+	return s.TargetScans
+}
+
 // process each of the targets and extract the certificate/connection state for post processing. Targets will be processed in parallel
 // number of concurrent retrievals can be controlled via the "batch.processors" configuration value.
 func (s *Scan) process(ctx context.Context, targets []*Target) error {
@@ -135,6 +139,7 @@ func (s *Scan) validate(ctx context.Context) error {
 // Reporters will ber run in parallel with each reporter processing the full results serially.
 func (s *Scan) report(ctx context.Context) error {
 	slog.Info("starting reporting", "target_scans", len(s.TargetScans))
+
 	group := utils.BatchProcess[Reporter](ctx, s.reporters, len(s.reporters), func(ctx context.Context, reporter Reporter) error {
 		slog.Debug("reporting on target scans", "reporter", reflect.TypeOf(reporter).Name())
 		for _, result := range s.TargetScans {

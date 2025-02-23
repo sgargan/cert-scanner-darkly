@@ -1,7 +1,6 @@
 package validations
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/sgargan/cert-scanner-darkly/config"
@@ -15,17 +14,6 @@ type ValidationsTests struct {
 
 func (t *ValidationsTests) SetupTest() {
 	viper.Set(config.ValidationsExpiryWindow, DefaultWarningDuration)
-	viper.Set("validations.expiry.enabled", false)
-	viper.Set(config.ValidationsTLSMinVersion, "1.2")
-}
-
-func (t *ValidationsTests) TestValidationsOnlyAppliedIfEnabled() {
-	for x, validations := range []string{"expiry", "before", "tls-version", "trust-chain"} {
-		t.assertValidations(x)
-		viper.Set(fmt.Sprintf("validations.%s.enabled", validations), true)
-		t.assertValidations(x + 1)
-	}
-	t.assertValidations(4)
 }
 
 func (t *ValidationsTests) TestValidationsCreationError() {

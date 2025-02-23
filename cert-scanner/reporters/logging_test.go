@@ -14,6 +14,7 @@ import (
 	"github.com/sgargan/cert-scanner-darkly/testutils"
 	. "github.com/sgargan/cert-scanner-darkly/testutils"
 	. "github.com/sgargan/cert-scanner-darkly/types"
+	"github.com/sgargan/cert-scanner-darkly/validations"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -42,8 +43,7 @@ func (t *LoggingTests) SetupTest() {
 	cert.SerialNumber = (&big.Int{}).SetBytes([]byte{1, 2, 3, 4})
 
 	testScan := CreateTestTargetScan().WithCertificates(cert).WithTarget(testutils.TestTarget())
-	result, violation := createTestViolation()
-	t.scan = testScan.WithScanResult(result).WithDuration(time.Duration(123)).WithViolation(violation).Build()
+	t.scan = testScan.WithDuration(time.Duration(123)).WithViolation(CreateTestViolation).Build()
 
 }
 
@@ -64,7 +64,8 @@ func (t *LoggingTests) TestReportsSuccessfulResultToLog() {
 		"msg":              "violation",
 		"not_after":        "1673139600000",
 		"not_after_date":   "2023-01-08T01:00:00Z",
-		"source":           "SomePod-acdf-bdfe",
+		"pod":              "somepod-acdf-bdfe",
+		"source":           "some-cluster",
 		"source_type":      "kubernetes",
 		"type":             "expiry",
 		"warning_duration": "168h0m0s",
@@ -89,7 +90,8 @@ func (t *LoggingTests) TestReportsFailingResultToLog() {
 		"msg":              "violation",
 		"not_after":        "1673139600000",
 		"not_after_date":   "2023-01-08T01:00:00Z",
-		"source":           "SomePod-acdf-bdfe",
+		"pod":              "somepod-acdf-bdfe",
+		"source":           "some-cluster",
 		"source_type":      "kubernetes",
 		"type":             "expiry",
 		"warning_duration": "168h0m0s",
@@ -115,6 +117,14 @@ func toJsonList(filename string) []map[string]interface{} {
 		asList = append(asList, asMap)
 	}
 	return asList
+}
+
+func CreateTestViolation(result *ScanResult) ScanError {
+	warning := time.Duration(7 * 24 * time.Hour)
+	expiry, _ := time.Parse(time.RFC3339, "2023-01-15T00:00:00Z")
+	expiry = expiry.Add(-1*warning + (time.Hour))
+
+	return validations.CreateExpiryValidationError(time.Duration(7*24*time.Hour), expiry, result)
 }
 
 func TestLoggingTests(t *testing.T) {

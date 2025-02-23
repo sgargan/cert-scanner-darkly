@@ -30,6 +30,7 @@ func (t *Target) Labels() Labels {
 	return copy
 }
 
+// Metadata describes the common information about a Target
 type Metadata struct {
 	Name       string
 	Source     string
@@ -77,6 +78,7 @@ func (t *TargetScan) Add(r *ScanResult) {
 	}
 }
 
+// ShouldValidate checks if the target scan should be validated
 func (t *TargetScan) ShouldValidate() bool {
 	return !t.Failed && t.FirstSuccessful != nil
 }
@@ -129,6 +131,8 @@ func (s *ScanResult) Labels() map[string]string {
 	return copy
 }
 
+// Factory is a simple interface used dynamically create resources based on the
+// presence/value of configuration vars
 type Factory[T comparable] func() (T, error)
 
 // Discovery is implemented by various integrations that can discover tls services
@@ -174,7 +178,31 @@ type Reporters = []Reporter
 type ScanError interface {
 	Labels() map[string]string
 
+	Result() *ScanResult
+
 	Error() string
+}
+
+// CompletedScan
+type CompletedScan interface {
+	Results() []*TargetScan
+}
+
+// AddressSet represents all the results of a scan, indexed by Target address
+type AddressSet map[string]*TargetScan
+
+func GetAddressSet(scan CompletedScan) AddressSet {
+	set := make(AddressSet, 0)
+	for _, result := range scan.Results() {
+		address := result.Target.Address.String()
+		set[address] = result
+	}
+	return set
+}
+
+func (a AddressSet) ContainsAddress(address string) bool {
+	_, present := a[address]
+	return present
 }
 
 const (
@@ -183,6 +211,7 @@ const (
 )
 
 type GenericScanError struct {
+	result    *ScanResult
 	errorType string
 	error
 }
@@ -191,8 +220,16 @@ func (e *GenericScanError) Labels() map[string]string {
 	return map[string]string{"type": e.errorType}
 }
 
-func CreateGenericError(errorType string, err error) ScanError {
-	return &GenericScanError{errorType: errorType, error: err}
+func (e *GenericScanError) Result() *ScanResult {
+	return e.result
+}
+
+func CreateGenericError(errorType string, err error, result *ScanResult) ScanError {
+	return &GenericScanError{
+		errorType: errorType,
+		error:     err,
+		result:    result,
+	}
 }
 
 func IsError(err error, errorType string) bool {

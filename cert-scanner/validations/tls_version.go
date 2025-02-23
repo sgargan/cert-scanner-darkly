@@ -24,6 +24,10 @@ func (e *TLSVersionValidationError) Error() string {
 	return fmt.Sprintf("connection supports an invalid tls version %s, min version is %s", e.detectedVersion, e.minVersion)
 }
 
+func (e *TLSVersionValidationError) Result() *ScanResult {
+	return e.result
+}
+
 func (e *TLSVersionValidationError) Labels() map[string]string {
 	labels := e.result.Labels()
 	labels["type"] = "tls_version"

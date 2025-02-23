@@ -84,9 +84,10 @@ func (t *TrustChainValidationTests) TestLabels() {
 		"failed":      "true",
 		"foo":         "bar",
 		"id":          fmt.Sprintf("%x", cert.SerialNumber),
-		"source":      "SomePod-acdf-bdfe",
+		"pod":         "somepod-acdf-bdfe",
+		"source":      "some-cluster",
 		"source_type": "kubernetes",
-		"type":        "trust-chain",
+		"type":        "trust_chain",
 	}, violation.Labels())
 }
 

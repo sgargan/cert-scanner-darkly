@@ -14,7 +14,12 @@ const (
 	DefaultWarningDuration = time.Duration(14 * 24 * time.Hour)
 )
 
-var factories = map[string]Factory[Validation]{"expiry": expiryValidation, "before": beforeValidation, "tls-version": tlsVersionValidation, "trust-chain": trustChainValidation}
+var factories = map[string]Factory[Validation]{
+	"expiry":        expiryValidation,
+	"not_yet_valid": beforeValidation,
+	"tls_version":   tlsVersionValidation,
+	"trust_chain":   trustChainValidation,
+}
 
 func CreateValidations() (Validations, error) {
 	return config.CreateConfigured[Validation]("validations", factories)

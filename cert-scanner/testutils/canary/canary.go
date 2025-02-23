@@ -29,7 +29,7 @@ func RunCanary(port int) {
 	config := testutils.CreateTestTLSConfig(tls.VersionTLS11, certPem, key)
 	testutils.NewTestTlsServerWithHandler(config, port, handler)
 
-	fmt.Printf("Running canary on :%d", port)
+	fmt.Printf("Running canary on :%d\n", port)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	wg.Wait()

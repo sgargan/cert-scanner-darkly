@@ -26,6 +26,10 @@ func CreateExpiryValidationError(warningDuration time.Duration, notAfter time.Ti
 	}
 }
 
+func (e *ExpiryValidationError) Result() *ScanResult {
+	return e.result
+}
+
 func (e *ExpiryValidationError) Error() string {
 	return fmt.Sprintf("cert will expire in less than %s on %s", e.warningDuration.String(), e.notAfter.Format(time.RFC822))
 }

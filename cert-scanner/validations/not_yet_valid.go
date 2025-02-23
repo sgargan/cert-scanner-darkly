@@ -22,6 +22,10 @@ func (e *BeforeValidationError) Error() string {
 		e.notBefore.Format(time.RFC822))
 }
 
+func (e *BeforeValidationError) Result() *ScanResult {
+	return e.result
+}
+
 func (e *BeforeValidationError) Labels() map[string]string {
 	labels := e.result.Labels()
 	labels["type"] = "before"

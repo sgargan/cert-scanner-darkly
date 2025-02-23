@@ -12,18 +12,23 @@ import (
 
 const (
 	CanaryPort                       = "canary.port"
-	ConfigMetricsPort                = "metrics.port"
+	MetricsPort                      = "metrics.port"
+	MetricsEnabled                   = "metrics.enabled"
 	DiscoveryK8sSource               = "discovery.kubernetes.source"
 	DiscoveryK8sNamespace            = "discovery.kubernetes.namespace"
 	DiscoveryK8sIgnore               = "discovery.kubernetes.ignore"
 	DiscoveryK8sKeys                 = "discovery.kubernetes.keys"
 	ProcessorsTlsEnabled             = "processors.tls-state.enabled"
 	ValidationsExpiryWindow          = "validations.expiry.warning_window"
-	ValidationsTrustChainCACertPaths = "validations.trust-chain.ca_paths"
+	ValidationsTrustChainCACertPaths = "validations.trust_chain.ca_paths"
+	ValidationsNotYetValidEnabled    = "validations.not_yet_valid.enabled"
 	ValidationsTLSMinVersion         = "validations.tls_version.min_version"
 	ReportersMetricsExpiry           = "reporters.metrics.expiry"
+	ReportersMetricsNotYetValid      = "reporters.metrics.not_yet_valid"
+	ReportersMetricsTLSVersion       = "reporters.metrics.tls_version"
+	ReportersMetricsTrustChain       = "reporters.metrics.expiry"
 	ReportersLoggingEnabled          = "reporters.logging.enabled"
-	ReportersMetricsEnabled          = "reporters.metrics.enabled"
+	ReportersMetricsEnabled          = "metrics.enabled"
 	Interval                         = "scan.interval"
 	Timeout                          = "scan.timeout"
 	Repeated                         = "scan.repeated"
@@ -63,6 +68,9 @@ func setDefaults() {
 	viper.SetDefault(ValidationsExpiryWindow, "168h")
 	viper.SetDefault(ValidationsTrustChainCACertPaths, []string{})
 	viper.SetDefault(ValidationsTLSMinVersion, "1.2")
+	viper.SetDefault(ValidationsTrustChainCACertPaths, "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+	viper.SetDefault(ValidationsNotYetValidEnabled, true)
+
 	viper.SetDefault(ReportersLoggingEnabled, true)
 	viper.SetDefault(ReportersMetricsEnabled, true)
 }

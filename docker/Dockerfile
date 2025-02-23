@@ -1,4 +1,4 @@
-FROM golang:1.21 as deps
+FROM golang:1.21.3 as deps
 WORKDIR /cert-scanner
 COPY cert-scanner/go.* /cert-scanner
 RUN go mod download

@@ -71,7 +71,7 @@ func (t *ScannerTests) TestValidScanCallsAllValidations() {
 
 func (t *ScannerTests) TestScanAggregatesValidations() {
 	for x := 0; x < 10; x += 2 {
-		err := CreateGenericError("some-validation", fmt.Errorf("i gotta bad feeling about this"))
+		err := CreateGenericError("some-validation", fmt.Errorf("i gotta bad feeling about this"), nil)
 		t.validations[x].(*MockValidation).err = err
 	}
 

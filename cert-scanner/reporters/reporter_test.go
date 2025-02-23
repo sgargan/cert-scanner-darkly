@@ -19,14 +19,20 @@ func (t *ReportersTests) SetupTest() {
 }
 
 func (t *ReportersTests) TestReportersEnabledByDefault() {
-	t.assertReporter(2)
+	t.assertReporter(5)
 }
 
 func (t *ReportersTests) TestReportersOnlyAppliedIfEnabled() {
-	t.assertReporter(2)
+	t.assertReporter(5)
 	viper.Set("reporters.logging.enabled", false)
+	t.assertReporter(4)
+	viper.Set("validations.expiry.enabled", false)
+	t.assertReporter(3)
+	viper.Set("validations.tls_version.enabled", false)
+	t.assertReporter(2)
+	viper.Set("validations.trust_chain.enabled", false)
 	t.assertReporter(1)
-	viper.Set("reporters.metrics.enabled", false)
+	viper.Set("validations.not_yet_valid.enabled", false)
 	t.assertReporter(0)
 }
 

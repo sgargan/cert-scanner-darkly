@@ -39,7 +39,7 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 			go func() {
 				defer wait.Done()
 				result := NewScanResult()
-				state, err := c.makeConnectionWithConfig(ctx, target, getConfig(cipher.ID, version))
+				state, err := c.makeConnectionWithConfig(ctx, result, target, getConfig(cipher.ID, version))
 				result.SetState(state, cipher, err)
 				targetScan.Add(result)
 			}()
@@ -49,12 +49,12 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 	results <- targetScan
 }
 
-func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {
+func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, result *ScanResult, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {
 	slog.Debug("connecting to target", "target", target.Name, "address", target.Address, "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", tls.VersionName(config.MaxVersion))
 	dialer := &net.Dialer{}
 	rawConn, err := dialer.DialContext(ctx, "tcp", target.Address.String())
 	if err != nil {
-		return nil, CreateGenericError(ConnectionError, err)
+		return nil, CreateGenericError(ConnectionError, err, result)
 	} else {
 		defer rawConn.Close()
 
@@ -95,6 +95,10 @@ func sortCiphers() []*tls.CipherSuite {
 type TLSConnectionError struct {
 	config tls.Config
 	error
+}
+
+func (t *TLSConnectionError) Result() *ScanResult {
+	return nil
 }
 
 func (t *TLSConnectionError) Labels() map[string]string {

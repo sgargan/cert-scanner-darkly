@@ -16,9 +16,9 @@ type TrustChainValidation struct {
 }
 
 type TrustChainValidationError struct {
-	err      error
-	subjects string
-	result   *ScanResult
+	err    error
+	cert   *x509.Certificate
+	result *ScanResult
 }
 
 func (e *TrustChainValidationError) Error() string {
@@ -27,8 +27,15 @@ func (e *TrustChainValidationError) Error() string {
 
 func (e *TrustChainValidationError) Labels() map[string]string {
 	labels := e.result.Labels()
-	labels["type"] = "trust-chain"
+	labels["type"] = "trust_chain"
+	labels["subject_cn"] = e.cert.Subject.CommonName
+	labels["issuer_cn"] = e.cert.Issuer.CommonName
+	labels["authority_key_id"] = fmt.Sprintf("%x", e.cert.AuthorityKeyId)
 	return labels
+}
+
+func (e *TrustChainValidationError) Result() *ScanResult {
+	return e.result
 }
 
 // CreateTrustChainValidation creates a validation that will verify the trust chains
@@ -36,7 +43,7 @@ func (e *TrustChainValidationError) Labels() map[string]string {
 func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValidation, error) {
 	rootCAs := x509.NewCertPool()
 	numCerts := 0
-	slog.Debug("loading ca certs", "num_certs", len(caCertPaths))
+	slog.Info("loading ca certs", "num_certs", len(caCertPaths))
 	for _, path := range caCertPaths {
 		certBytes, err := os.ReadFile(path)
 		if err != nil {
@@ -51,7 +58,7 @@ func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValid
 		if err != nil {
 			return nil, fmt.Errorf("error parsing cert: %v", err)
 		}
-		slog.Debug("loaded ca cert", "path", path, "certs", len(certs))
+		slog.Info("loaded ca cert", "path", path, "certs", len(certs))
 		for _, cert := range certs {
 			numCerts += 1
 			rootCAs.AddCert(cert)
@@ -66,7 +73,7 @@ func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValid
 		}
 		return CreateTrustChainValidation(systemCAs), nil
 	}
-	slog.Debug("loaded all certs", "num_certs", numCerts)
+	slog.Info("trust_chain validation loaded all certs", "num_certs", numCerts)
 	return CreateTrustChainValidation(rootCAs), nil
 }
 
@@ -94,7 +101,9 @@ func (v *TrustChainValidation) Validate(scan *TargetScan) ScanError {
 			intermediates.AddCert(cert)
 		}
 	}
-	_, err := result.State.PeerCertificates[0].Verify(x509.VerifyOptions{
+
+	cert := result.State.PeerCertificates[0]
+	_, err := cert.Verify(x509.VerifyOptions{
 		Roots:         v.rootCAs,
 		CurrentTime:   time.Now(),
 		DNSName:       "", // skip hostname verification
@@ -104,6 +113,7 @@ func (v *TrustChainValidation) Validate(scan *TargetScan) ScanError {
 	if err != nil {
 		return &TrustChainValidationError{
 			result: result,
+			cert:   cert,
 			err:    fmt.Errorf("trust chain validation failed: %v", err),
 		}
 	}

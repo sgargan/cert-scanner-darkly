@@ -23,15 +23,17 @@ func CreateConfigured[T comparable](group string, factories map[string]Factory[T
 		enabled := fmt.Sprintf("%s.enabled", key)
 
 		keyset := viper.Get(key) != nil
-		notEnabled := viper.GetString(enabled) == ""
+		noEnableConfigForKey := viper.GetString(enabled) == ""
 		boolEnabled := viper.GetBool(enabled)
-		if boolEnabled || (keyset && notEnabled) {
+		if boolEnabled || (keyset && noEnableConfigForKey) {
 			if t, err := factory(); err != nil {
 				return nil, err
 			} else if !reflect.ValueOf(t).IsZero() {
 				created = append(created, t)
 			}
 			slog.Debug("created type via factory", "group", group, "factory", name)
+		} else {
+			slog.Debug("factory not enabled", "group", group, "factory", name)
 		}
 
 	}
