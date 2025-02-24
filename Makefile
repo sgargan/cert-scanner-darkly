@@ -23,7 +23,7 @@ IMAGE_ARGS += --label "com.qualtrics.build-info.build-time=$(BUILD_TIME)"
 
 NAMESPACE ?= security-scanners
 
-KO_DOCKER_REPO=docker.io
+KO_DOCKER_REPO = docker.io/stevegargan
 
 .PHONY: local-dev deploy-local
 .PHONY: deploy-remote
@@ -67,7 +67,7 @@ cover: test
 	go tool cover -html=coverage.out
 
 build-image:
-	docker buildx build --platform linux/amd64,linux/arm64 --push -t ${IMAGE} -f docker/Dockerfile .
+	KO_DOCKER_REPO=$(KO_DOCKER_REPO) ko build github.com/sgargan/cert-scanner-darkly --tags $(VERSION) --base-import-paths
 
 deploy:
 	$(call deploy)
