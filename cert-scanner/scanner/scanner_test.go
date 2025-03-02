@@ -118,7 +118,7 @@ func (m *MockDiscovery) Discover(ctx context.Context, targets chan *Target) erro
 	m.called = true
 	for x := 0; x < 10; x++ {
 		targets <- &Target{
-			Address: netip.MustParseAddrPort(fmt.Sprintf("123.123.231.231:%d", x)),
+			Address: CreateNetIPAddress(netip.MustParseAddrPort(fmt.Sprintf("123.123.231.231:%d", x))),
 		}
 	}
 	return m.err

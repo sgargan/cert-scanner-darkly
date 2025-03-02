@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -28,5 +29,6 @@ func BatchProcess[T any](ctx context.Context, items []T, batchSize int, processo
 			return processor(gctx, copy)
 		})
 	}
+	slog.Debug("batch process finished")
 	return group
 }

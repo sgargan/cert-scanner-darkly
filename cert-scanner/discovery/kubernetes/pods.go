@@ -103,7 +103,7 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 				if port.Protocol == v1.ProtocolTCP {
 					numTargets++
 					targets <- &Target{
-						Address: netip.AddrPortFrom(ip, uint16(port.ContainerPort)),
+						Address: CreateNetIPAddress(netip.AddrPortFrom(ip, uint16(port.ContainerPort))),
 						Metadata: Metadata{
 							Name:       pod.ObjectMeta.Name,
 							Source:     d.source,

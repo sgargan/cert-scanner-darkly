@@ -21,34 +21,30 @@ type CertScannerTests struct {
 
 func (t *CertScannerTests) TestScanValidTarget() {
 	target := &Target{
-		Address: netip.MustParseAddrPort("0.0.0.0:33333"),
+		Address: getAddress("0.0.0.0:33333"),
 	}
 
 	testutils.WithTestServerVersion(tls.VersionTLS12, 33333, func(testServer *testutils.TestTlsServer) error {
-		scan := t.runScan(target)
-		if scan != nil {
-			// the majority will be handshake failures
-			for _, result := range scan {
-				if result.Failed {
-					t.ErrorContains(result.Results[0].Error, "protocol version not supported")
-				} else {
-					r := result.FirstSuccessful
-					t.NotNil(r)
-					t.NotNil(r.State)
-					t.Equal(1, len(r.State.PeerCertificates))
-					t.GreaterOrEqual(r.State.Version, uint16(tls.VersionTLS12))
-					t.NotNil(r.Cipher)
-				}
+		// the majority will be handshake failures
+		for _, result := range t.runScan(target) {
+			if result.Failed {
+				t.ErrorContains(result.Results[0].Error, "protocol version not supported")
+			} else {
+				r := result.FirstSuccessful
+				t.NotNil(r)
+				t.NotNil(r.State)
+				t.Equal(1, len(r.State.PeerCertificates))
+				t.GreaterOrEqual(r.State.Version, uint16(tls.VersionTLS12))
+				t.NotNil(r.Cipher)
 			}
 		}
-
 		return nil
 	})
 }
 
 func (t *CertScannerTests) TestConnectionError() {
 	target := &Target{
-		Address: netip.MustParseAddrPort("127.0.0.1:33333"),
+		Address: CreateNetIPAddress(netip.MustParseAddrPort("127.0.0.1:33333")),
 	}
 	results := t.runScan(target)
 	t.ValidateError(results[0], ConnectionError)
@@ -61,7 +57,7 @@ func (t *CertScannerTests) TestHandshakeError() {
 	time.Sleep(50 * time.Millisecond)
 
 	target := &Target{
-		Address: netip.MustParseAddrPort("127.0.0.1:33334"),
+		Address: getAddress("127.0.0.1:33334"),
 	}
 	results := t.runScan(target)
 	t.ValidateError(results[0], "tls-handshake")
@@ -75,7 +71,7 @@ func GetTestTargets() []*Target {
 			address := fmt.Sprintf("%s:%d", ip.String(), 443)
 			targets = append(targets, &Target{
 				Metadata: Metadata{},
-				Address:  netip.MustParseAddrPort(address),
+				Address:  getAddress(address),
 			})
 		}
 	}
@@ -105,6 +101,10 @@ func (t *CertScannerTests) runScan(target *Target) []*TargetScan {
 			aggregatedResults = append(aggregatedResults, result)
 		}
 	}
+}
+
+func getAddress(addr string) *NetIPAddress {
+	return CreateNetIPAddress(netip.MustParseAddrPort(addr))
 }
 
 func (t *CertScannerTests) ValidateError(scan *TargetScan, errorType string) {

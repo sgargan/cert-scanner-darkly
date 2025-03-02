@@ -4,18 +4,93 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/netip"
+	"net/url"
 	"sync"
 	"time"
 )
 
 type Labels = map[string]string
 
+// Address is the location that will be connected to for scanning.
+// it is typically an net.IP or a url
+type Address interface {
+	Connect(context context.Context) (net.Conn, error)
+	String() string
+	ValidateHostname() bool
+}
+
+type NetIPAddress struct {
+	ip netip.AddrPort
+}
+
+func CreateNetIPAddress(ip netip.AddrPort) *NetIPAddress {
+	return &NetIPAddress{
+		ip: ip,
+	}
+}
+
+func (n *NetIPAddress) Connect(ctx context.Context) (net.Conn, error) {
+	dialer := &net.Dialer{
+		Timeout: 1 * time.Second,
+	}
+	return dialer.DialContext(ctx, "tcp", n.ip.String())
+}
+
+// NetIp does not validate the hostname as part of the tls handshake
+func (n *NetIPAddress) ValidateHostname() bool {
+	return false
+}
+
+func (n *NetIPAddress) String() string {
+	return n.ip.String()
+}
+
+type UrlAddress struct {
+	url *url.URL
+}
+
+func ParseUrlAddress(u string) (*UrlAddress, error) {
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateUrlAddress(parsed), nil
+}
+
+func CreateUrlAddress(url *url.URL) *UrlAddress {
+	return &UrlAddress{
+		url: url,
+	}
+}
+
+func (n *UrlAddress) Connect(ctx context.Context) (net.Conn, error) {
+	dialer := &net.Dialer{
+		Timeout: 1 * time.Second,
+	}
+	port := n.url.Port()
+	if port == "" && (n.url.Scheme == "tls" || n.url.Scheme == "https") {
+		port = "443"
+	}
+	return dialer.DialContext(ctx, "tcp", fmt.Sprintf("%s:%s", n.url.Host, port))
+}
+
+// URLs shoud validate the hostname as part of the tls handshake
+func (n *UrlAddress) ValidateHostname() bool {
+	return true
+}
+
+func (n *UrlAddress) String() string {
+	return n.url.Hostname()
+}
+
 // Target represents a discovered service running on a given address and port
 // that may be TLS enabled
 type Target struct {
 	Metadata
-	Address netip.AddrPort
+	Address Address
 }
 
 func (t *Target) Labels() Labels {

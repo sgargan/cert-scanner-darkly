@@ -7,7 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/sgargan/cert-scanner-darkly/config"
 	. "github.com/sgargan/cert-scanner-darkly/types"
+	"github.com/spf13/viper"
 	"golang.org/x/exp/slog"
 )
 
@@ -26,11 +28,19 @@ func (e *TrustChainValidationError) Error() string {
 }
 
 func (e *TrustChainValidationError) Labels() map[string]string {
+	subject := "n/a"
+	issuer := "n/a"
+	authorityKeyId := []byte{}
+	if e.cert != nil {
+		subject = e.cert.Subject.CommonName
+		issuer = e.cert.Issuer.CommonName
+		authorityKeyId = e.cert.AuthorityKeyId
+	}
 	labels := e.result.Labels()
 	labels["type"] = "trust_chain"
-	labels["subject_cn"] = e.cert.Subject.CommonName
-	labels["issuer_cn"] = e.cert.Issuer.CommonName
-	labels["authority_key_id"] = fmt.Sprintf("%x", e.cert.AuthorityKeyId)
+	labels["subject_cn"] = subject
+	labels["issuer_cn"] = issuer
+	labels["authority_key_id"] = fmt.Sprintf("%x", authorityKeyId)
 	return labels
 }
 
@@ -42,6 +52,13 @@ func (e *TrustChainValidationError) Result() *ScanResult {
 // of each cert in a scan result using root CA certs from the given paths.
 func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValidation, error) {
 	rootCAs := x509.NewCertPool()
+	if viper.GetBool(config.ValidationsTrustChainSystemRoots) {
+		var err error
+		if rootCAs, err = x509.SystemCertPool(); err != nil {
+			return nil, fmt.Errorf("error loading system root certs - %v", err)
+		}
+	}
+
 	numCerts := 0
 	slog.Info("loading ca certs", "num_certs", len(caCertPaths))
 	for _, path := range caCertPaths {
@@ -65,14 +82,6 @@ func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValid
 		}
 	}
 
-	if numCerts == 0 {
-		slog.Warn("no cert paths configured, using default system CA pool")
-		systemCAs, err := x509.SystemCertPool()
-		if err != nil {
-			return nil, fmt.Errorf("error loading system cert bundle: %v", err)
-		}
-		return CreateTrustChainValidation(systemCAs), nil
-	}
 	slog.Info("trust_chain validation loaded all certs", "num_certs", numCerts)
 	return CreateTrustChainValidation(rootCAs), nil
 }
@@ -102,11 +111,19 @@ func (v *TrustChainValidation) Validate(scan *TargetScan) ScanError {
 		}
 	}
 
+	// if the target has a url then verify the hostname
+	// otherwise skip the name validation.
+	expectedName := ""
+	switch scan.Target.Address.(type) {
+	case *UrlAddress:
+		expectedName = scan.Target.Address.String()
+	}
+
 	cert := result.State.PeerCertificates[0]
 	_, err := cert.Verify(x509.VerifyOptions{
 		Roots:         v.rootCAs,
 		CurrentTime:   time.Now(),
-		DNSName:       "", // skip hostname verification
+		DNSName:       expectedName,
 		Intermediates: intermediates,
 	})
 

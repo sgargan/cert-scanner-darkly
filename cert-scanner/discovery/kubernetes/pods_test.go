@@ -66,7 +66,7 @@ func (t *PodTests) TestDiscoversValidPods() {
 				"container": "somecontainer",
 			},
 		},
-		Address: netip.MustParseAddrPort("10.0.1.1:8080"),
+		Address: getAddress("10.0.1.1:8080"),
 	}, <-targets)
 
 	t.Equal(&Target{
@@ -81,7 +81,7 @@ func (t *PodTests) TestDiscoversValidPods() {
 				"container": "somecontainer",
 			},
 		},
-		Address: netip.MustParseAddrPort("10.0.1.2:8081"),
+		Address: getAddress("10.0.1.2:8081"),
 	}, <-targets)
 }
 
@@ -149,6 +149,10 @@ func createContainerPort(port int32) v1.ContainerPort {
 		Protocol:      v1.ProtocolTCP,
 		ContainerPort: port,
 	}
+}
+
+func getAddress(addr string) *NetIPAddress {
+	return CreateNetIPAddress(netip.MustParseAddrPort(addr))
 }
 
 type MockPods struct {
