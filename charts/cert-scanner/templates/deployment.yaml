@@ -25,15 +25,16 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "cert-scanner.serviceAccountName" . }}
-      {{- with .Values.podSecurityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+
       containers:
         - name: cert-scanner
           image: "{{ .Values.image.url }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["scan", "-c", "/etc/cert-scanner/config.yaml"]
+          args: ["scan", "-c", "/etc/cert-scanner/config/config.yaml"]
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           env:
           - name: CERT_SCANNER_POD_NAME
             valueFrom:
@@ -53,8 +54,13 @@ spec:
               port: http
           volumeMounts:
             - name: cert-scanner-config
-              mountPath: /etc/cert-scanner
+              mountPath: /etc/cert-scanner/config
               readOnly: true
+            {{- if .Values.hosts}}
+            - name: cert-scanner-hosts
+              mountPath: /etc/cert-scanner/hosts
+              readOnly: true
+            {{- end }}
             {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -64,6 +70,11 @@ spec:
       - name: cert-scanner-config
         configMap:
           name: {{ include "cert-scanner.fullname" . }}
+      {{- if .Values.hosts }}
+      - name: cert-scanner-hosts
+        configMap:
+          name: {{ include "cert-scanner.fullname" . }}-hosts
+      {{ end }}
       {{- with .Values.extraVolumes }}
       {{- toYaml . | nindent 6 }}
       {{- end }}

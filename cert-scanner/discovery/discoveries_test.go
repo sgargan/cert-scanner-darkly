@@ -1,7 +1,6 @@
 package discovery
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/sgargan/cert-scanner-darkly/discovery/kubernetes"
@@ -15,26 +14,38 @@ type DiscoveryTests struct {
 
 func (t *DiscoveryTests) SetupTest() {
 	if _, _, err := kubernetes.GetClientset(); err != nil {
-		t.T().Skipf("cannot load k8s client, this may be a CI env. Please test his outside fo ci")
+		t.T().Skipf("cannot load k8s client, this may be a CI env. Please test this outside of ci")
 	}
-	viper.Set("discovery.kubernetes.enabled", false)
+	viper.Reset()
 }
 
-func (t *DiscoveryTests) TestDiscoveryOnlyAppliedIfEnabled() {
+func (t *DiscoveryTests) TestDiscoveryOfPodsOnlyAppliedIfEnabled() {
+	t.assertDiscovery(0)
 	viper.Set("discovery.kubernetes.source", "some-source")
-	for x, discovery := range []string{"kubernetes"} {
-		t.assertDiscovery(x)
-		viper.Set(fmt.Sprintf("discovery.%s.enabled", discovery), true)
-		t.assertDiscovery(x + 1)
-	}
 	t.assertDiscovery(1)
+	viper.Set("discovery.kubernetes.enabled", false)
+	t.assertDiscovery(0)
 }
 
-func (t *DiscoveryTests) TestDiscoveryCreationError() {
+func (t *DiscoveryTests) TestDiscoveryOfFilesIfPathsInConfig() {
+	t.assertDiscovery(0)
+	viper.Set("discovery.files.paths", []string{"/path/to/some/hosts.yaml"})
+	t.assertDiscovery(1)
+	viper.Set("discovery.files.enabled", false)
+}
+
+func (t *DiscoveryTests) TestK8sDiscoveryCreationError() {
 	viper.Set("discovery.kubernetes.enabled", true)
 	viper.Set("discovery.kubernetes.source", "")
 	_, err := CreateDiscoveries()
 	t.ErrorContains(err, "a valid source label for the cluster is required")
+}
+
+func (t *DiscoveryTests) TestFileDiscoveryCreationError() {
+
+	viper.Set("discovery.files.enabled", true)
+	_, err := CreateDiscoveries()
+	t.ErrorContains(err, "no host file paths configured in discovery.files.paths")
 }
 
 func (t *DiscoveryTests) assertDiscovery(expected int) {

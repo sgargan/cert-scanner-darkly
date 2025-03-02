@@ -3,7 +3,6 @@ package processors
 import (
 	"context"
 	"crypto/tls"
-	"net"
 	"sort"
 
 	"golang.org/x/exp/slog"
@@ -31,6 +30,7 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 	wait := &utils.ContextualWaitGroup{}
 	targetScan := NewTargetScanResult(target)
 
+	hasConnectionError := false
 	for _, x := range orderedCipherSuites {
 		cipher := x
 		wait.Add(len(cipher.SupportedVersions))
@@ -39,20 +39,24 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 			go func() {
 				defer wait.Done()
 				result := NewScanResult()
-				state, err := c.makeConnectionWithConfig(ctx, result, target, getConfig(cipher.ID, version))
+				state, err := c.makeConnectionWithConfig(ctx, result, target, getConfig(target, cipher.ID, version))
 				result.SetState(state, cipher, err)
+				hasConnectionError = hasConnectionError || IsError(err, ConnectionError)
 				targetScan.Add(result)
 			}()
 		}
 	}
 	wait.WaitWithContext(ctx)
+
+	if hasConnectionError {
+		slog.Error("error making connection to target", "address", target.Address.String())
+	}
 	results <- targetScan
 }
 
 func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, result *ScanResult, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {
-	slog.Debug("connecting to target", "target", target.Name, "address", target.Address, "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", tls.VersionName(config.MaxVersion))
-	dialer := &net.Dialer{}
-	rawConn, err := dialer.DialContext(ctx, "tcp", target.Address.String())
+	slog.Debug("connecting to target", "target", target.Name, "address", target.Address.String(), "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", tls.VersionName(config.MaxVersion))
+	rawConn, err := target.Address.Connect(ctx)
 	if err != nil {
 		return nil, CreateGenericError(ConnectionError, err, result)
 	} else {
@@ -61,7 +65,6 @@ func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, result
 		// attempt a handshake with the given config
 		conn := tls.Client(rawConn, config)
 		if err = conn.HandshakeContext(ctx); err != nil {
-
 			return nil, &TLSConnectionError{
 				config: *config,
 				error:  err,
@@ -72,15 +75,19 @@ func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, result
 	}
 }
 
-func getConfig(cipher, version uint16) *tls.Config {
-	// skip validation here so we as not to fail due errors like the servername or trust chain verification.
-	// these will get validated later
-	return &tls.Config{
-		InsecureSkipVerify: true,
-		CipherSuites:       []uint16{cipher},
-		MaxVersion:         version,
-		MinVersion:         version,
+func getConfig(target *Target, cipher, version uint16) *tls.Config {
+	config := &tls.Config{
+		CipherSuites: []uint16{cipher},
+		MaxVersion:   version,
+		MinVersion:   version,
 	}
+
+	if target.Address.ValidateHostname() {
+		config.ServerName = target.Address.String()
+	} else {
+		config.InsecureSkipVerify = true
+	}
+	return config
 }
 
 func sortCiphers() []*tls.CipherSuite {

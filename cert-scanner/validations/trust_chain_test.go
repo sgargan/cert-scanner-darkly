@@ -79,15 +79,18 @@ func (t *TrustChainValidationTests) TestLabels() {
 	}
 
 	t.Equal(map[string]string{
-		"address":     "172.1.2.34:8080",
-		"common_name": "somehost",
-		"failed":      "true",
-		"foo":         "bar",
-		"id":          fmt.Sprintf("%x", cert.SerialNumber),
-		"pod":         "somepod-acdf-bdfe",
-		"source":      "some-cluster",
-		"source_type": "kubernetes",
-		"type":        "trust_chain",
+		"address":          "172.1.2.34:8080",
+		"common_name":      "somehost",
+		"failed":           "true",
+		"foo":              "bar",
+		"id":               fmt.Sprintf("%x", cert.SerialNumber),
+		"pod":              "somepod-acdf-bdfe",
+		"source":           "some-cluster",
+		"source_type":      "kubernetes",
+		"type":             "trust_chain",
+		"authority_key_id": "",
+		"subject_cn":       "n/a",
+		"issuer_cn":        "n/a",
 	}, violation.Labels())
 }
 

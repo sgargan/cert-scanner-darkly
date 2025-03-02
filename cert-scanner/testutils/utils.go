@@ -143,7 +143,7 @@ func (tc *TestCertResult) Build() *TargetScan {
 
 func TestTarget() *Target {
 	return &Target{
-		Address: netip.MustParseAddrPort("172.1.2.34:8080"),
+		Address: CreateNetIPAddress(netip.MustParseAddrPort("172.1.2.34:8080")),
 		Metadata: Metadata{
 			Labels:     map[string]string{"foo": "bar", "pod": "somepod-acdf-bdfe"},
 			SourceType: "kubernetes",

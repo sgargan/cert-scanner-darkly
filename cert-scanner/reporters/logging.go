@@ -35,7 +35,8 @@ func CreateLoggingReporter(logFile *os.File) (*LoggingReporter, error) {
 
 func (l *LoggingReporter) Report(ctx context.Context, scan *TargetScan) {
 	for _, violation := range scan.Violations {
-		l.logger.Info("violation", labelsToList(violation.Labels())...)
+		labels := labelsToList(violation.Labels())
+		l.logger.Info("violation", labels...)
 	}
 }
 

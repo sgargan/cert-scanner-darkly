@@ -2,6 +2,7 @@ package processors
 
 import (
 	"github.com/sgargan/cert-scanner-darkly/config"
+	//lint:ignore ST1001 types are ok
 	. "github.com/sgargan/cert-scanner-darkly/types"
 )
 

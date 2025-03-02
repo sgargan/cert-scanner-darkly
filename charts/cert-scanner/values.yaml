@@ -7,7 +7,7 @@ port: &port 9253
 # Scan config yaml templated straight from here into a configMap
 # mounted into the scanner container.
 scanConfig:
-  debug: false
+  debug: true
 
   scan:
     repeated: true
@@ -19,6 +19,9 @@ scanConfig:
       source: some-cluster
       ignore:
         - coredns
+    files:
+      paths:
+        - /etc/cert-scanner/hosts/hosts.yaml
 
   validations:
     expiry:
@@ -26,11 +29,12 @@ scanConfig:
     tls_version:
       min_version: 1.2
     trust_chain:
-      # ca:
-      #   paths:
-      #   - /a/ca/path
-      #   - /b/ca/path
-      #   - /c/ca/path
+      use_system_roots: true
+      ca:
+        paths:
+        - /a/ca/path
+        - /b/ca/path
+        - /c/ca/path
 
   reporters:
     logging:
@@ -39,6 +43,23 @@ scanConfig:
   metrics:
     enabled: true
     port: *port
+
+# Configure a list of static entries that will be loaded from a file and scanned.
+# this is useful for scanning known fqdns. Helm will create a config map containing this
+# an mount it to /etc/cert-scanner/hosts.yaml. Add this path to the discovery -> files
+# section of the scan config to load and scan these.
+hosts:
+  groups:
+    - source: important company fqdns
+      hosts:
+        - host: https://vanity.somecompany.com
+        - host: https://www.somecompany.com
+        - host: 10.2.3.4:8443
+    - source:  other urls
+      hosts:
+        - host: https://google.com
+        - host: https://github.com
+        - host: https://golang.dev
 
 # use the volumes and mounts to mount any CA bundles your systems use into the scanner
 volumes: {}
