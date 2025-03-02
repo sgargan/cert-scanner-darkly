@@ -131,6 +131,28 @@ func (t *PodTests) TestIgnoresPods() {
 	t.Equal(0, len(targets))
 }
 
+func (t *PodTests) TestIgnoresPendingPods() {
+	t.AddPods("some-pod-7475bbf4d4-nr79n", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
+	)
+	t.list.Items[0].Status.Phase = v1.PodPending
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, []string{"some-pod"}, t.Build())
+	targets := make(chan *Target, 2)
+	t.NoError(podDiscovery.Discover(context.Background(), targets))
+	t.Equal(0, len(targets))
+}
+
+func (t *PodTests) TestIgnoresPodsWithUnreadyContainers() {
+	t.AddPods("some-pod-7475bbf4d4-nr79n", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
+	)
+	t.list.Items[0].Status.ContainerStatuses = []v1.ContainerStatus{{Ready: false}}
+	podDiscovery, _ := CreatePodDiscovery("some-cluster", []string{}, []string{"some-pod"}, t.Build())
+	targets := make(chan *Target, 2)
+	t.NoError(podDiscovery.Discover(context.Background(), targets))
+	t.Equal(0, len(targets))
+}
+
 func (t *PodTests) TestIgnoresScanner() {
 	os.Setenv(ScannerPodEnvName, "cert-scanner-12345fed")
 	t.AddPods("cert-scanner-1234abcd", "some-namespace", map[string]string{},
@@ -186,8 +208,10 @@ func (m *MockPods) AddPods(name, namespace string, labels map[string]string, ip 
 			},
 		},
 		Status: v1.PodStatus{
-			PodIP:  ip.IP,
-			PodIPs: []v1.PodIP{ip},
+			PodIP:      ip.IP,
+			PodIPs:     []v1.PodIP{ip},
+			Phase:      v1.PodRunning,
+			Conditions: []v1.PodCondition{{Type: v1.PodReady, Status: v1.ConditionTrue}},
 		},
 	})
 }

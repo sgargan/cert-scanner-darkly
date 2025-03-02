@@ -76,7 +76,7 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 	slog.Debug("retrieved pods from api", "source", d.source, "pods", len(pods.Items))
 	numTargets := 0
 	for _, pod := range pods.Items {
-		if d.ignorePod(pod.Name) {
+		if d.ignorePod(pod.Name) || !isPodReady(&pod) {
 			continue
 		}
 		podIP := pod.Status.PodIP
@@ -118,6 +118,31 @@ func (d *PodDiscovery) Discover(ctx context.Context, targets chan *Target) error
 	}
 	slog.Info("finished pod discovery", "pods", len(pods.Items), "targets", numTargets)
 	return nil
+}
+
+func isPodReady(pod *v1.Pod) bool {
+	// Check if pod phase is Running
+	if pod.Status.Phase != v1.PodRunning {
+		return false
+	}
+
+	// Check all containers are ready
+	for _, container := range pod.Status.ContainerStatuses {
+		if !container.Ready {
+			return false
+		}
+	}
+
+	// Check pod conditions
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == v1.PodReady {
+			if condition.Status == v1.ConditionTrue {
+				return true
+			}
+			return false
+		}
+	}
+	return false
 }
 
 func (d *PodDiscovery) ignorePod(podname string) bool {
