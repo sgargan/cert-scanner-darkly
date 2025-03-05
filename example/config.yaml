@@ -10,10 +10,58 @@ pprof: false
 scan:
   # repeat scan every interval when true or run once and exit
   repeated: true
-  # how often to scan the cluster
+  # how often to scan discovered targets
   interval: 10m
   # max time a scan run should take
   timeout: 2m
+
+
+# service discovery mechanism to enable
+discovery:
+  # kubernetes will connect to the cluster in the current context
+  # Note that it will need network connectivity to all pods to be able to scan correctly
+  # so please setup NetworkPolicies appropriately to allow access.
+  kubernetes:
+    # source will be appended as a label to in each reporter
+    source: some-cluster
+
+    # Any pod with a following entriy as prefix will be ignored during disovery
+    ignore:
+      - coredns
+    # additional labels that are collected into scan results based on the source type
+    # that should be available in reporters
+    additionalLabels:
+      - pod
+      - namespace
+
+  # files loads groups of static scan targets from yaml files on disk
+  # see hosts.yaml for the format of hosts targets file.
+  files:
+    paths:
+      - /etc/cert-scanner/hosts/hosts.yaml
+
+validations:
+  expiry:
+    warning_window: 72h
+  tls_version:
+    min_version: 1.2
+  trust_chain:
+    use_system_roots: true
+    ca:
+      paths:
+      - /a/ca/path
+      - /b/ca/path
+      - /c/ca/path
+
+reporters:
+  logging:
+    enabled: true
+
+metrics:
+  enabled: true
+  port: *port
+
+debug: true
 
 # service discovery mechanism to enable
 discovery:
