@@ -21,4 +21,4 @@ jobs:
       run: make deps
         
     - name: Build
-      run: make tests
+      run: make test
