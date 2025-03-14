@@ -65,7 +65,7 @@ func (t *ScannerTests) TestValidScanCallsAllValidations() {
 	for x := 0; x < 10; x++ {
 		v := t.validations[x].(*MockValidation)
 		t.True(v.called)
-		t.Equal(1000, len(v.results))
+		t.Equal(1000, len(t.sut.Results()))
 	}
 }
 
@@ -79,7 +79,7 @@ func (t *ScannerTests) TestScanAggregatesValidations() {
 	for x := 0; x < 10; x++ {
 		v := t.validations[x].(*MockValidation)
 		t.True(v.called)
-		t.Equal(1000, len(v.results))
+		t.Equal(1000, len(t.sut.Results()))
 	}
 }
 
@@ -88,7 +88,7 @@ func (t *ScannerTests) TestValidScanCallsAllReporters() {
 	for x := 0; x < 10; x++ {
 		r := t.reporters[x].(*MockReporter)
 		t.True(r.called)
-		t.Equal(1000, len(r.results))
+		t.Equal(1000, len(t.sut.Results()))
 	}
 }
 
