@@ -1,0 +1,17 @@
+#
+# Groups of hosts that should be scanned for violations
+# the path to this file should be configured in your config.yaml
+# Entries should either be ip:port pairs or urls with a tls based
+# scheme i.e. tls/https. If no port is specifed in a url 443 is assumed
+#
+groups:
+  - source: important company fqdns
+    hosts:
+      - host: https://vanity.somecompany.com
+      - host: https://www.somecompany.com
+      - host: 10.2.3.4:8443
+  - source:  other urls
+    hosts:
+      - host: https://google.com
+      - host: https://github.com
+      - host: https://golang.dev
