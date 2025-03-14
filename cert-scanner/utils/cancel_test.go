@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -33,6 +34,36 @@ func (t *CancelContextTests) TestContextCancelledBySignal() {
 		syscall.Kill(syscall.Getpid(), syscall.SIGUSR1)
 	})
 	t.Equal(Cancelled, watcher.Watch(ctx, cancel, 100*time.Millisecond))
+}
+
+func (t *CancelContextTests) TestWaitWithContextReleasedWhenContexCancelled() {
+	ctx, cancel := context.WithCancel(context.Background())
+	wwc := &ContextualWaitGroup{}
+	wwc.Add(1)
+
+	var done atomic.Bool
+	time.AfterFunc(50*time.Millisecond, func() {
+		done.Store(true)
+		cancel()
+	})
+	wwc.WaitWithContext(ctx)
+	t.NotNil(ctx.Err())
+	t.True(done.Load())
+}
+
+func (t *CancelContextTests) TestWaitWithContextReleasedWhenWaitDone() {
+	ctx := context.Background()
+	wwc := &ContextualWaitGroup{}
+	wwc.Add(1)
+
+	var waited atomic.Bool
+	time.AfterFunc(50*time.Millisecond, func() {
+		wwc.Done()
+		waited.Store(true)
+	})
+	wwc.WaitWithContext(ctx)
+	t.Nil(ctx.Err())
+
 }
 
 type WatchResult int64
