@@ -1,0 +1,26 @@
+apiVersion: v1
+entries:
+  cert-scanner:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2025-03-20T16:30:30.670996596Z"
+    description: 'Deploys cert-scanner used to scan and validate the usage of TLS
+      certificates across the cluster. '
+    digest: 6ca4e999667bce7fb868b796b1fdf6e84345d0f041d90770dc4912e6329c57bb
+    name: cert-scanner
+    type: application
+    urls:
+    - https://github.com/sgargan/cert-scanner-darkly/releases/download/cert-scanner-0.1.0/cert-scanner-0.1.0.tgz
+    version: 0.1.0
+  cert-scanner-canary:
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2025-03-20T16:30:30.778755478Z"
+    description: 'Deploys a webapp with an expired self signed cert. '
+    digest: 88d1f4ae53299ebbe96dcfcbb8571f9eaf817a9a0a364a8c9191206de3b6dca7
+    name: cert-scanner-canary
+    type: application
+    urls:
+    - https://github.com/sgargan/cert-scanner-darkly/releases/download/cert-scanner-canary-0.1.0/cert-scanner-canary-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-03-20T16:30:30.778761389Z"
