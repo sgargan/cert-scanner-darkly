@@ -148,6 +148,7 @@ func TestTarget() *Target {
 			Labels:     map[string]string{"foo": "bar", "pod": "somepod-acdf-bdfe"},
 			SourceType: "kubernetes",
 			Source:     "some-cluster",
+			Name:       "somepod-acdf-bdfe",
 		},
 	}
 }

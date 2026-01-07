@@ -30,6 +30,7 @@ const (
 	ReportersMetricsTLSVersion       = "reporters.metrics.tls_version"
 	ReportersMetricsTrustChain       = "reporters.metrics.expiry"
 	ReportersLoggingEnabled          = "reporters.logging.enabled"
+	ReportersScanStatsOnlySuccessful = "reporters.scan_stats.only_successful"
 	ReportersMetricsEnabled          = "metrics.enabled"
 	Interval                         = "scan.interval"
 	Timeout                          = "scan.timeout"
