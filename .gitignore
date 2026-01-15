@@ -1,2 +1,6 @@
 coverage.out
 build
+charts/extra.yaml
+.tool-versions
+example/ca_bundle.pem
+charts/cert-scanner/extra.yaml

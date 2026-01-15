@@ -50,8 +50,8 @@ func (t *TrustChainValidationTests) TestErrorBogusCertsFromPaths() {
 	t.Greater(len, 0)
 	t.NoError(err)
 
-	_, err = CreateTrustChainValidationWithPaths([]string{bogusCaFile.Name()})
-	t.Error(err)
+	numCerts, _ := loadCaCertsFromPaths(x509.NewCertPool(), []string{bogusCaFile.Name()})
+	t.Equal(0, numCerts)
 }
 
 func (t *TrustChainValidationTests) TestHasInvalidTrustChain() {
