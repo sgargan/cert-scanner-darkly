@@ -20,9 +20,8 @@ validations:
     warning_window: 72h
   tls_version:
     min_version: 1.3
-  trust:
-    ca:
-       paths:
+  trust_chain:
+    ca_paths:
        - /a/ca/path
        - /b/ca/path
        - /c/ca/path
@@ -35,12 +34,12 @@ reporters:
 `
 
 	t.runTestCase("Full valid config", yaml)
-	t.True(viper.GetBool("reporters.metrics.enabled"))
-	t.True(viper.GetBool("reporters.logging.enabled"))
-	t.Equal("1.3", viper.GetString("validations.tls_version.min_version"))
+	t.True(viper.GetBool(ReportersLoggingEnabled))
+	t.True(viper.GetBool(ReportersMetricsEnabled))
+	t.Equal("1.3", viper.GetString(ValidationsTLSMinVersion))
 	t.Equal([]string{"/a/ca/path", "/b/ca/path", "/c/ca/path"},
-		viper.GetStringSlice("validations.trust.ca.paths"))
-	t.Equal(t.ParseDuration("72h"), viper.GetDuration("validations.expiry.warning_window"))
+		viper.GetStringSlice(ValidationsTrustChainCACertPaths))
+	t.Equal(t.ParseDuration("72h"), viper.GetDuration(ValidationsExpiryWindow))
 }
 
 func (t *ConfigTests) TestLoadEmptyConfig() {

@@ -59,31 +59,14 @@ func CreateTrustChainValidationWithPaths(caCertPaths []string) (*TrustChainValid
 		}
 	}
 
-	numCerts := 0
-	slog.Info("loading ca certs", "num_certs", len(caCertPaths))
-	for _, path := range caCertPaths {
-		certBytes, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing cert: %v", err)
-		}
-
-		decodedPem, _ := pem.Decode(certBytes)
-		if decodedPem == nil {
-			return nil, fmt.Errorf("error decoding pem from: %v", path)
-		}
-		certs, err := x509.ParseCertificates(decodedPem.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing cert: %v", err)
-		}
-		slog.Info("loaded ca cert", "path", path, "certs", len(certs))
-		for _, cert := range certs {
-			numCerts += 1
-			rootCAs.AddCert(cert)
-		}
+	slog.Info("loading ca certs", "num_paths", len(caCertPaths))
+	numCerts, err := loadCaCertsFromPaths(rootCAs, caCertPaths)
+	if err != nil {
+		return nil, err
 	}
 
 	slog.Info("trust_chain validation loaded all certs", "num_certs", numCerts)
-	return CreateTrustChainValidation(rootCAs), nil
+	return CreateTrustChainValidation(rootCAs), err
 }
 
 // CreateTrustChainValidation creates a validation that will verify the trust chains
@@ -92,6 +75,39 @@ func CreateTrustChainValidation(rootCAs *x509.CertPool) *TrustChainValidation {
 	return &TrustChainValidation{
 		rootCAs: rootCAs,
 	}
+}
+
+func loadCaCertsFromPaths(rootCAs *x509.CertPool, caCertPaths []string) (int, error) {
+	numCerts := 0
+	for _, path := range caCertPaths {
+		certBytes, err := os.ReadFile(path)
+		if err != nil {
+			return 0, fmt.Errorf("error reading cert file %s: %v", path, err)
+		}
+
+		rest := certBytes
+		var block *pem.Block
+		for {
+			block, rest = pem.Decode(rest)
+
+			if block == nil {
+				break
+			}
+
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				// we don't necessarily want to error out here if one of the certs is invalid
+				// this might not be something that we have control over if the bundle is provided
+				// count the number of certs and report this up
+				slog.Error("Failed to parse certificate", "error", err)
+				continue
+			}
+			rootCAs.AddCert(cert)
+			numCerts += 1
+			slog.Debug("added ca cert", "subject", cert.Subject.CommonName, "issuer", cert.Issuer.CommonName, "authority_key_id", fmt.Sprintf("%x", cert.AuthorityKeyId))
+		}
+	}
+	return numCerts, nil
 }
 
 // Validate will verify the cert chain from the scan result using the configured pool

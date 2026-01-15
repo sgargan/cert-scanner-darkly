@@ -11,8 +11,8 @@ scanConfig:
 
   scan:
     repeated: true
-    interval: 1m
-    timeout: 1m
+    interval: 10m
+    timeout: 10m
 
   discovery:
     kubernetes:
@@ -68,8 +68,8 @@ volumeMounts: {}
 
 image:
   url: docker.io/stevegargan/cert-scanner-darkly
-  pullPolicy: IfNotPresent
-  tag: 0.0.2
+  pullPolicy: Always
+  tag: 0.0.3
 
 serviceAccount:
   annotations: {}
