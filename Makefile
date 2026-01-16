@@ -75,6 +75,6 @@ deploy:
 define deploy
 	$(eval URL:=$(KO_DOCKER_REPO)/cert-scanner-darkly)
 	{ kubectl create namespace ${NAMESPACE} || true ;}
-	helm upgrade --install -n ${NAMESPACE} $(CHART) charts/$(CHART) --values charts/cert-scanner/values.yaml --set image.url=$(URL) --set image.tag=$(VERSION)
+	helm upgrade --install -n ${NAMESPACE} $(CHART) charts/$(CHART) --values charts/cert-scanner/values.yaml --set image.url=$(URL) --set image.tag=$(VERSION) --set image.pullPolicy=Never
 	kubectl rollout restart deployment -n ${NAMESPACE} $(CHART)
 endef

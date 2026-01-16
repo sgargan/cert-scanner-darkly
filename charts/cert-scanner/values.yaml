@@ -30,14 +30,15 @@ scanConfig:
       min_version: 1.2
     trust_chain:
       use_system_roots: true
-      ca:
-        paths:
-        - /a/ca/path
-        - /b/ca/path
-        - /c/ca/path
+      # ca_paths:
+      #   - /a/ca/path
+      #   - /b/ca/path
+      #   - /c/ca/path
 
   reporters:
     logging:
+      enabled: true
+    scan_stats:
       enabled: true
 
   metrics:

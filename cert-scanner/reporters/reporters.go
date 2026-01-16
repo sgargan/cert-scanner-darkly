@@ -14,6 +14,7 @@ var factories = map[string]Factory[Reporter]{
 	"not_yet_valid": metrics.CreateNotYetValidReporter,
 	"tls_version":   metrics.CreateTLSVersionReporter,
 	"trust_chain":   metrics.CreateTrustChainReporter,
+	"scan_stats":    metrics.CreateScanStatsReporter,
 }
 
 func CreateReporters() (Reporters, error) {

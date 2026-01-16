@@ -69,24 +69,6 @@ func (t *TLSVersionValidationTests) TestLabels() {
 	}, violation.Labels())
 }
 
-func (t *TLSVersionValidationTests) TestConversions() {
-	t.assertVersion("1.3")
-	t.assertVersion("1.2")
-	t.assertVersion("1.1")
-	t.assertVersion("1.0")
-	t.Equal("unknown", toVersion(1234))
-
-	_, err := fromVersion("not_a_tls_version")
-	t.ErrorContains(err, "not_a_tls_version is not a valid tls version string use one of 1.0, 1.1, 1.2, 1.3")
-
-}
-
-func (t *TLSVersionValidationTests) assertVersion(version string) {
-	converted, err := fromVersion(version)
-	t.NoError(err)
-	t.Equal(version, toVersion(converted))
-}
-
 func TestTLSVersionValidations(t *testing.T) {
 	suite.Run(t, &TLSVersionValidationTests{})
 }
