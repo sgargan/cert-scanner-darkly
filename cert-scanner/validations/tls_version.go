@@ -45,6 +45,10 @@ func CreateTLSVersionValidation(minVersion string) (*TLSVersionValidation, error
 // Validate will check that the tls version is not less than the minimum configured version
 func (v *TLSVersionValidation) Validate(scan *TargetScan) ScanError {
 	slog.Debug("validating tls version of target", "target", scan.Target.Name)
+	if scan.Failed() {
+		return nil
+	}
+
 	result := scan.FirstSuccessful
 	if int(result.State.Version) < v.minVersion {
 		return &TLSVersionValidationError{

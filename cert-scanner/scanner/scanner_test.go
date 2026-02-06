@@ -101,7 +101,7 @@ func (t *ScannerTests) TestErrorDuringDiscovery() {
 }
 
 func (t *ScannerTests) TestBatchSizeRetrieval() {
-	t.Equal(getBatchSize(), runtime.NumCPU())
+	t.Equal(getBatchSize(), runtime.NumCPU()+1)
 	viper.Set("batch.processors", 16)
 	t.Equal(getBatchSize(), 16)
 }

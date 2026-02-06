@@ -33,6 +33,26 @@ During the discovery phase, all of the configured discovery sources are queried 
 
 The kubernetes discovery mechanism will connect to the cluster in the current context and list all the ready pods, extracting pod-ip:port pairs and creating a Target for each, with 'kubernetes' as the sourcetype  and the cluster name as the source.
 
+#### K8s filtering
+Discovered pods are fed through a set of configured ignore filters that use the jsonpath functionality from the k8s client to match against the pod content for fields. The matching sections are tested against configured regexes and any matches are ignored for the scan.
+
+ Filters are broken into two sections ignore_pods and ignore_containers;
+ - ignore_pods will discard any pods that match a given filter where as
+ - ignore_containers will allow sidecars and container level ports to be ignored.
+
+ e.g.
+ ```
+ignore_pods:
+  - pattern: "{.metadata.namespace}"
+    match:
+      - some-namespace
+ignore_containers:
+  - pattern: "{.spec.containers[*].ports[*].name}"
+    match:
+      - metrics
+      - healthz
+```
+
 ### File
 
 File discovery loads static urls from host files, creating a Target for each url found in the file. Host entries are grouped within the file and the group key is used as the source. The source type will be file.

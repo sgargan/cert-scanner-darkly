@@ -27,7 +27,7 @@ func (t *CertScannerTests) TestScanValidTarget() {
 	testutils.WithTestServerVersion(tls.VersionTLS12, 33333, func(testServer *testutils.TestTlsServer) error {
 		// the majority will be handshake failures
 		for _, result := range t.runScan(target) {
-			if result.Failed {
+			if result.Failed() {
 				t.ErrorContains(result.Results[0].Error, "protocol version not supported")
 			} else {
 				r := result.FirstSuccessful

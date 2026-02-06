@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/sgargan/cert-scanner-darkly/config"
@@ -24,7 +25,9 @@ func (t *DiscoveryTests) TestDiscoveryLoadsConfig() {
 	viper.Set(config.DiscoveryK8sSource, "somecluster")
 	viper.Set(config.DiscoveryK8sNamespace, "somenamespace")
 	viper.Set(config.DiscoveryK8sKeys, []string{"foo", "bar"})
-	viper.Set(config.DiscoveryK8sIgnore, []string{"somecontainer"})
+	viper.Set(config.DiscoveryK8sIgnorePatterns, []map[string]interface{}{
+		{"pattern": "{.metadata.name}", "match": []string{"some-pod"}},
+	})
 
 	d, err := CreateDiscovery()
 	t.NoError(err)
@@ -32,7 +35,11 @@ func (t *DiscoveryTests) TestDiscoveryLoadsConfig() {
 	discovery := d.(*PodDiscovery)
 	t.Equal("somecluster", discovery.source)
 	t.Equal([]string{"foo", "bar"}, discovery.labelKeys)
-	t.Equal(map[string]string{"somecontainer": ""}, discovery.ignore)
+	t.Len(discovery.ignorePatterns, 2)
+	t.Equal("{.metadata.name}", discovery.ignorePatterns[0].pattern)
+	t.Equal(regexp.MustCompile("some-pod"), discovery.ignorePatterns[0].matches[0])
+	t.Equal("{.metadata.name}", discovery.ignorePatterns[1].pattern)
+	t.Equal(regexp.MustCompile("cert-scanner"), discovery.ignorePatterns[1].matches[0])
 }
 
 func TestDiscoveryTests(t *testing.T) {
