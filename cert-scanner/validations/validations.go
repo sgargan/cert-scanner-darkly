@@ -19,6 +19,8 @@ var factories = map[string]Factory[Validation]{
 	"not_yet_valid": beforeValidation,
 	"tls_version":   tlsVersionValidation,
 	"trust_chain":   trustChainValidation,
+	"require_tls":   requireTLSValidation,
+	"cipher_suite":  cipherSuiteValidation,
 }
 
 func CreateValidations() (Validations, error) {
@@ -49,4 +51,13 @@ func trustChainValidation() (Validation, error) {
 
 func tlsVersionValidation() (Validation, error) {
 	return CreateTLSVersionValidation(viper.GetString(config.ValidationsTLSMinVersion))
+}
+
+func requireTLSValidation() (Validation, error) {
+	return CreateRequireTLSValidation(), nil
+}
+
+func cipherSuiteValidation() (Validation, error) {
+	allowedCiphers := viper.GetStringSlice(config.ValidationsCipherSuite)
+	return CreateCipherSuiteValidation(allowedCiphers)
 }

@@ -1,45 +1,24 @@
 kube-prometheus-stack:
   prometheus:
     prometheusSpec:
+      ruleSelector:
+        matchLabels:
+          prometheus.io/monitor: security
       podMonitorSelector:
         matchLabels:
           prometheus.io/monitor: security
-
-  # server:
-  #   enabled: true
-  #   name: scan-test-cluster
-
-  #   persistentVolume:
-  #     enabled: false
-
-  #   emptyDir:
-  #     sizeLimit: 1G
-
-  #   alertmanagers: []
-
-  #   replicaCount: 1
-
-  #   resources:
-  #     limits:
-  #       cpu: 500m
-  #       memory: 512Mi
-  #     requests:
-  #       cpu: 500m
-  #       memory: 512Mi
-
-  #   statefulSet:
-  #     enabled: false
 
   alertmanager:
     enabled: true
 
   kube-state-metrics:
+    enabled: false
     prometheus:
       monitor:
         enabled: false
 
   nodeExporter:
-    enabled: true
+    enabled: false
 
   prometheus-node-exporter:
     prometheus:

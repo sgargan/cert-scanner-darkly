@@ -22,6 +22,7 @@ const (
 	DiscoveryK8sMatchCIDR            = "discovery.kubernetes.match_cidr"
 	DiscoveryFilePaths               = "discovery.files.paths"
 	ProcessorsTlsEnabled             = "processors.tls-state.enabled"
+	ValidationsCipherSuite           = "validations.cipher_suite.allowed_ciphers"
 	ValidationsExpiryWindow          = "validations.expiry.warning_window"
 	ValidationsTrustChainCACertPaths = "validations.trust_chain.ca_paths"
 	ValidationsTrustChainSystemRoots = "validations.trust_chain.use_system_roots"
