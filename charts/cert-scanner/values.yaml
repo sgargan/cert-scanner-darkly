@@ -23,10 +23,7 @@ scanConfig:
       ignore_pods:
         - pattern: "{.metadata.namespace}"
           match:
-            - (kube|qualtrics)-system
-            - engvis.*
-            - cilium.*
-            - log-collection
+            - some-namespace
       ignore_containers:
         - pattern: "{.spec.containers[*].ports[*].name}"
           match:
@@ -49,6 +46,11 @@ scanConfig:
       #   - /a/ca/path
       #   - /b/ca/path
       #   - /c/ca/path
+    require_tls:
+      enabled: true
+    # cipher_suite:
+    #   allowed_ciphers:
+    #     - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 
   reporters:
     logging:
@@ -79,8 +81,15 @@ hosts:
 
 # use the volumes and mounts to mount any CA bundles your systems use into the scanner
 volumes: {}
-
 volumeMounts: {}
+
+# enable monitoring for the scanner
+monitor:
+  enabled: true
+  alerts:
+    require_tls: true
+    cipher_suite: true
+
 
 image:
   url: docker.io/stevegargan/cert-scanner-darkly

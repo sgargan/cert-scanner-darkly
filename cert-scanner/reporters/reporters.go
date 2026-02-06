@@ -15,6 +15,8 @@ var factories = map[string]Factory[Reporter]{
 	"tls_version":   metrics.CreateTLSVersionReporter,
 	"trust_chain":   metrics.CreateTrustChainReporter,
 	"scan_stats":    metrics.CreateScanStatsReporter,
+	"require_tls":    metrics.CreateRequireTLSReporter,
+	"cipher_suite":   metrics.CreateCipherSuiteReporter,
 }
 
 func CreateReporters() (Reporters, error) {
