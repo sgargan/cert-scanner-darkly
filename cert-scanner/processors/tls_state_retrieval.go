@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"sort"
+	"time"
 
 	"golang.org/x/exp/slog"
 
@@ -21,6 +22,9 @@ func init() {
 }
 
 // CreateTLSStateRetrieval creates a scanner to retrieve TLS state information from Targets.
+// This is the main connection logic for the scanner and will use the configured cipher suites and
+// versions to attempt to connect to the discovered targets. The results of each target scan are aggregated
+// to report on after the scan is complete.
 func CreateTLSStateRetrieval() (Processor, error) {
 	return &TLSStateRetrieval{}, nil
 }
@@ -56,23 +60,27 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 
 func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, result *ScanResult, target *Target, config *tls.Config) (*tls.ConnectionState, ScanError) {
 	slog.Debug("connecting to target", "target", target.Name, "address", target.Address.String(), "cipher", tls.CipherSuiteName(config.CipherSuites[0]), "version", tls.VersionName(config.MaxVersion))
-	rawConn, err := target.Address.Connect(ctx)
+
+	// Create a timeout context for both connect and handshake
+	handshakeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rawConn, err := target.Address.Connect(handshakeCtx)
 	if err != nil {
 		return nil, CreateGenericError(ConnectionError, err, result)
-	} else {
-		defer rawConn.Close()
-
-		// attempt a handshake with the given config
-		conn := tls.Client(rawConn, config)
-		if err = conn.HandshakeContext(ctx); err != nil {
-			return nil, &TLSConnectionError{
-				config: *config,
-				error:  err,
-			}
-		}
-		state := conn.ConnectionState()
-		return &state, nil
 	}
+	defer rawConn.Close()
+
+	// attempt a handshake with the given config
+	conn := tls.Client(rawConn, config)
+	if err = conn.HandshakeContext(handshakeCtx); err != nil {
+		return nil, &TLSConnectionError{
+			config: *config,
+			error:  err,
+		}
+	}
+	state := conn.ConnectionState()
+	return &state, nil
 }
 
 func getConfig(target *Target, cipher, version uint16) *tls.Config {

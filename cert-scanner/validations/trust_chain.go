@@ -114,6 +114,10 @@ func loadCaCertsFromPaths(rootCAs *x509.CertPool, caCertPaths []string) (int, er
 // of root CA certs ignoring any ServerNames in the certs.
 func (v *TrustChainValidation) Validate(scan *TargetScan) ScanError {
 	slog.Debug("validating trust of target", "target", scan.Target.Name)
+	if scan.Failed() {
+		return nil
+	}
+
 	result := scan.FirstSuccessful
 	if v.rootCAs == nil {
 		return nil

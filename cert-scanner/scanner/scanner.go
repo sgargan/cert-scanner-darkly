@@ -132,11 +132,11 @@ func (s *Scan) validate(ctx context.Context) error {
 
 	group := utils.BatchProcess[*TargetScan](ctx, s.TargetScans, s.parallel, func(ctx context.Context, targetScan *TargetScan) error {
 		slog.Debug("validating target scan", "target", targetScan.Target.Name)
-		if targetScan.ShouldValidate() {
-			for _, validation := range s.validations {
-				targetScan.AddViolation(validation.Validate(targetScan))
-			}
+		// if targetScan.ShouldValidate() {
+		for _, validation := range s.validations {
+			targetScan.AddViolation(validation.Validate(targetScan))
 		}
+		// }
 		return nil
 	})
 	err := group.Wait()
@@ -161,7 +161,7 @@ func (s *Scan) report(ctx context.Context) error {
 
 func getBatchSize() int {
 	if batchSize := viper.GetInt("batch.processors"); batchSize == 0 {
-		return runtime.NumCPU()
+		return runtime.NumCPU() + 1
 	} else {
 		return batchSize
 	}

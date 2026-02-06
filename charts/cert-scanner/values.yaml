@@ -9,6 +9,9 @@ port: &port 9253
 scanConfig:
   debug: true
 
+  batch:
+    processors: 8
+
   scan:
     repeated: true
     interval: 10m
@@ -17,8 +20,20 @@ scanConfig:
   discovery:
     kubernetes:
       source: some-cluster
-      ignore:
-        - coredns
+      ignore_pods:
+        - pattern: "{.metadata.namespace}"
+          match:
+            - (kube|qualtrics)-system
+            - engvis.*
+            - cilium.*
+            - log-collection
+      ignore_containers:
+        - pattern: "{.spec.containers[*].ports[*].name}"
+          match:
+            - metrics
+            - health.*
+            - prometheus
+
     files:
       paths:
         - /etc/cert-scanner/hosts/hosts.yaml
