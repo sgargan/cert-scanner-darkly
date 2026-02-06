@@ -54,10 +54,12 @@ func CreateExpiryValidation(warningDuration time.Duration) *ExpiryValidation {
 // expiry falls in the the warning window, this validation will fail and raise a validation error
 func (v *ExpiryValidation) Validate(scan *TargetScan) ScanError {
 	slog.Debug("validating cert of target will not expire soon", "target", scan.Target.Name, "warning_duration", v.warningDuration.String())
-	result := scan.FirstSuccessful
-	for _, cert := range result.State.PeerCertificates {
-		if time.Until(cert.NotAfter) < v.warningDuration {
-			return CreateExpiryValidationError(v.warningDuration, cert.NotAfter, result)
+	if !scan.Failed() {
+		result := scan.FirstSuccessful
+		for _, cert := range result.State.PeerCertificates {
+			if time.Until(cert.NotAfter) < v.warningDuration {
+				return CreateExpiryValidationError(v.warningDuration, cert.NotAfter, result)
+			}
 		}
 	}
 	return nil

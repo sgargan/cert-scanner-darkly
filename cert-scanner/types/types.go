@@ -121,7 +121,6 @@ type TargetScan struct {
 	Results         []*ScanResult
 	scanTime        time.Time
 	Duration        time.Duration
-	Failed          bool
 	FirstSuccessful *ScanResult
 	Violations      []ScanError
 }
@@ -132,6 +131,15 @@ func NewTargetScanResult(target *Target) *TargetScan {
 		scanTime:   time.Now(),
 		Violations: make([]ScanError, 0),
 	}
+}
+
+func (t *TargetScan) Failed() bool {
+	for _, result := range t.Results {
+		if result.Failed {
+			return true
+		}
+	}
+	return false
 }
 
 // AddViolation adds a detected violation for one ScanResult to the target scan
@@ -151,11 +159,6 @@ func (t *TargetScan) Add(r *ScanResult) {
 	if !r.Failed && t.FirstSuccessful == nil {
 		t.FirstSuccessful = r
 	}
-}
-
-// ShouldValidate checks if the target scan should be validated
-func (t *TargetScan) ShouldValidate() bool {
-	return !t.Failed && t.FirstSuccessful != nil
 }
 
 // ScanResult is the state detected from a single scan of a target with a specific TLS

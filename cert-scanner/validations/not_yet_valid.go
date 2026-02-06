@@ -43,13 +43,16 @@ func CreateBeforeValidation() *BeforeValidation {
 // if the cert will not become valid until some time in the future
 func (v *BeforeValidation) Validate(scan *TargetScan) ScanError {
 	slog.Debug("validating cert of taget is currently valid", "target", scan.Target.Name)
-	result := scan.FirstSuccessful
-	for _, cert := range result.State.PeerCertificates {
-		untilValid := time.Until(cert.NotBefore)
-		if untilValid > 0 {
-			return &BeforeValidationError{
-				untilValid: untilValid,
-				notBefore:  cert.NotBefore,
+
+	if !scan.Failed() {
+		result := scan.FirstSuccessful
+		for _, cert := range result.State.PeerCertificates {
+			untilValid := time.Until(cert.NotBefore)
+			if untilValid > 0 {
+				return &BeforeValidationError{
+					untilValid: untilValid,
+					notBefore:  cert.NotBefore,
+				}
 			}
 		}
 	}

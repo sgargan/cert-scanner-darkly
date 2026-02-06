@@ -1,6 +1,6 @@
-VERSION=0.0.1
-REPO= docker.io
-IMAGE_PATH=stevegargan/cert-scanner-darkly
+VERSION?=0.0.1
+REPO?=docker.io
+IMAGE_PATH?=stevegargan/cert-scanner-darkly
 IMAGE=${REPO}/${IMAGE_PATH}:${VERSION}
 
 GIT_COMMIT     = $(shell git rev-parse HEAD | cut -b 1-8)
@@ -23,7 +23,7 @@ IMAGE_ARGS += --label "com.qualtrics.build-info.build-time=$(BUILD_TIME)"
 
 NAMESPACE ?= security-scanners
 
-KO_DOCKER_REPO = docker.io/stevegargan
+KO_DOCKER_REPO ?= docker.io/stevegargan
 
 .PHONY: local-dev deploy-local
 .PHONY: deploy-remote
