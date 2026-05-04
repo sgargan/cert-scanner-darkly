@@ -51,6 +51,12 @@ func (t *CancelContextTests) TestWaitWithContextReleasedWhenContexCancelled() {
 	t.True(done.Load())
 }
 
+func (t *CancelContextTests) TestCancelFunctionCancelsContext() {
+	ctx, cancel := CreateSignalledContext(10*time.Second, syscall.SIGUSR1)
+	cancel()
+	t.NotNil(ctx.Err())
+}
+
 func (t *CancelContextTests) TestWaitWithContextReleasedWhenWaitDone() {
 	ctx := context.Background()
 	wwc := &ContextualWaitGroup{}
