@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -34,7 +35,7 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 	wait := &utils.ContextualWaitGroup{}
 	targetScan := NewTargetScanResult(target)
 
-	hasConnectionError := false
+	var hasConnectionError atomic.Bool
 	for _, x := range orderedCipherSuites {
 		cipher := x
 		wait.Add(len(cipher.SupportedVersions))
@@ -45,14 +46,16 @@ func (c *TLSStateRetrieval) Process(ctx context.Context, target *Target, results
 				result := NewScanResult()
 				state, err := c.makeConnectionWithConfig(ctx, result, target, getConfig(target, cipher.ID, version))
 				result.SetState(state, cipher, err)
-				hasConnectionError = hasConnectionError || IsError(err, ConnectionError)
+				if IsError(err, ConnectionError) {
+					hasConnectionError.Store(true)
+				}
 				targetScan.Add(result)
 			}()
 		}
 	}
 	wait.WaitWithContext(ctx)
 
-	if hasConnectionError {
+	if hasConnectionError.Load() {
 		slog.Error("error making connection to target", "address", target.Address.String())
 	}
 	results <- targetScan
