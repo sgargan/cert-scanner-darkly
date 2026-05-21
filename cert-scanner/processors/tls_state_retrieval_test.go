@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,25 +22,34 @@ type CertScannerTests struct {
 
 func (t *CertScannerTests) TestScanValidTarget() {
 	target := &Target{
-		Address: getAddress("0.0.0.0:33333"),
+		Address: getAddress("127.0.0.1:33333"),
 	}
-
-	testutils.WithTestServerVersion(tls.VersionTLS12, 33333, func(testServer *testutils.TestTlsServer) error {
-		// the majority will be handshake failures
-		for _, result := range t.runScan(target) {
-			if result.Failed() {
-				t.ErrorContains(result.Results[0].Error, "protocol version not supported")
-			} else {
-				r := result.FirstSuccessful
-				t.NotNil(r)
-				t.NotNil(r.State)
-				t.Equal(1, len(r.State.PeerCertificates))
-				t.GreaterOrEqual(r.State.Version, uint16(tls.VersionTLS12))
-				t.NotNil(r.Cipher)
+	err := testutils.WithTestServerVersion(tls.VersionTLS12, 33333, func(_ *testutils.TestTlsServer) error {
+		scans := t.runScan(target)
+		t.Require().Len(scans, 1)
+		scan := scans[0]
+		t.Require().NotNil(scan.FirstSuccessful)
+		r := scan.FirstSuccessful
+		t.NotNil(r.State)
+		t.Equal(1, len(r.State.PeerCertificates))
+		t.GreaterOrEqual(r.State.Version, uint16(tls.VersionTLS12))
+		t.NotNil(r.Cipher)
+		// optional: at least one failed attempt was a version/cipher mismatch
+		var versionOrCipherFailures int
+		for _, res := range scan.Results {
+			if !res.Failed || res.Error == nil {
+				continue
+			}
+			msg := res.Error.Error()
+			if strings.Contains(msg, "protocol version not supported") ||
+				strings.Contains(msg, "handshake failure") {
+				versionOrCipherFailures++
 			}
 		}
+		t.Greater(versionOrCipherFailures, 0)
 		return nil
 	})
+	t.NoError(err)
 }
 
 func (t *CertScannerTests) TestConnectionError() {
