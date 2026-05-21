@@ -60,7 +60,8 @@ func Run(cmd *cobra.Command, args []string) {
 }
 
 func repeatedly() {
-	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGKILL)
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+	defer cancel()
 	interval := viper.GetDuration(config.Interval)
 	ticker := time.NewTicker(interval)
 	running := false
@@ -102,7 +103,9 @@ func once() {
 func scan(ctx context.Context) (*scanner.Scan, error) {
 	timeout := viper.GetDuration(config.Timeout)
 	if timeout != 0 {
-		ctx, _ = utils.CreateSignalledContextWithContext(ctx, timeout, syscall.SIGKILL)
+		var cancel context.CancelFunc
+		ctx, cancel = utils.CreateSignalledContextWithContext(ctx, timeout, syscall.SIGTERM)
+		defer cancel()
 	}
 	return scanner.PerformScan(ctx)
 }
