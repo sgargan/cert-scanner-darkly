@@ -1,28 +1,47 @@
-name: Release Helm Charts
+name: Release Helm Chart
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'charts/**' 
+
+permissions:
+  contents: read
+  packages: write 
 
 jobs:
   release:
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
         with:
-          fetch-depth: 0
+          version: v3.14.0
 
-      - name: Configure Git
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and Push Helm Chart to OCI
         run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          CR_PAGES_BRANCH: helm-chart-repo
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          
+          for chartName in "cert-scanner" ; do
+            chart = "charts/$chartName"
+            if [ -d "$chart" ]; then
+              echo "Processing $chart..."
+              
+              helm package "$chart" --destination .deploy
+              PACKAGE=$(ls .deploy/*.tgz | head -n 1)
+              helm push "$PACKAGE" oci://ghcr.io/$OWNER/charts
+              rm -rf .deploy
+            fi
+          done
