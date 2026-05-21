@@ -61,7 +61,7 @@ install-tparse:
 	@{ [ -x ${GOPATH}/bin/tparse ] || go install github.com/mfridman/tparse@latest ;}
 
 test: install-tparse
-	cd cert-scanner && go test ./... -json -v -p 1 -count=1 -coverprofile=coverage.out | tparse -follow -all
+	cd cert-scanner && go test -race ./... -json -v -p 1 -count=1 -coverprofile=coverage.out | tparse -follow -all
 
 cover: test
 	go tool cover -html=coverage.out

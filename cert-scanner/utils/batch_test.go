@@ -57,24 +57,24 @@ func (t *BatchProcessTests) TestProcessesInBatches() {
 }
 
 func (t *BatchProcessTests) TestSliceRequired() {
-	called := false
+	var called atomic.Bool
 	group := BatchProcess[*Item](context.Background(), nil, 10, func(ctx context.Context, item *Item) (err error) {
-		called = true
+		called.Store(true)
 		return nil
 	})
 	err := group.Wait()
-	t.False(called)
+	t.False(called.Load())
 	t.ErrorContains(err, "a valid slice of items to process is required")
 }
 
 func (t *BatchProcessTests) TestUsesItemsLengthIfLargerBatchSizeRequested() {
-	called := false
+	var called atomic.Bool
 	group := BatchProcess[int](context.Background(), []int{1, 2, 3}, 10, func(ctx context.Context, item int) (err error) {
-		called = true
+		called.Store(true)
 		return nil
 	})
 	t.NoError(group.Wait())
-	t.True(called)
+	t.True(called.Load())
 }
 
 func TestBatchProcessTests(t *testing.T) {
