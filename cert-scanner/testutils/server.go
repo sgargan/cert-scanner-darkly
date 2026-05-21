@@ -5,8 +5,8 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
-	"time"
 )
 
 type TestTlsServer struct {
@@ -25,6 +25,12 @@ func NewTestTlsServer(config *tls.Config, port int) *TestTlsServer {
 }
 
 func NewTestTlsServerWithHandler(config *tls.Config, port int, handler http.HandlerFunc) *TestTlsServer {
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		panic(err)
+	}
+	tlsLn := tls.NewListener(ln, config)
+
 	server := &TestTlsServer{
 		config: config,
 		server: &http.Server{Addr: fmt.Sprintf("0.0.0.0:%d", port), Handler: handler, TLSConfig: config},
@@ -32,17 +38,14 @@ func NewTestTlsServerWithHandler(config *tls.Config, port int, handler http.Hand
 	}
 
 	go func() {
-		switch {
-		case <-server.done:
-			server.server.Close()
-		}
+		<-server.done
+		tlsLn.Close()
 	}()
 
 	go func() {
-		fmt.Println(server.server.ListenAndServeTLS("", ""))
+		_ = server.server.Serve(tlsLn)
 	}()
 
-	time.Sleep(100 * time.Millisecond)
 	return server
 }
 
