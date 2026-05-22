@@ -35,7 +35,7 @@ jobs:
           OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           
           for chartName in "cert-scanner" ; do
-            chart = "charts/$chartName"
+            chart="charts/$chartName"
             if [ -d "$chart" ]; then
               echo "Processing $chart..."
               
