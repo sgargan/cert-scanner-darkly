@@ -1,0 +1,34 @@
+name: Build and Release Image
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build and Push with ko
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23' # Match your Go version
+          cache: true
+
+      - name: Set up ko
+        uses: ko-build/setup-ko@v0.8
+
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "${DOCKERHUB_TOKEN}" | ko login index.docker.io --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      - name: Build and Push Image
+        run: |
+          make build-image

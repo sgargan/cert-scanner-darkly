@@ -1,4 +1,4 @@
-VERSION?=0.0.1
+VERSION?=echo "${$(git tag -l | grep -E "^v" | sort -nr | head -n 1):-v0.0.1}"
 REPO?=docker.io
 IMAGE_PATH?=stevegargan/cert-scanner-darkly
 IMAGE=${REPO}/${IMAGE_PATH}:${VERSION}
@@ -36,7 +36,7 @@ local-dev: KO_DOCKER_REPO=ko.local
 local-dev:
 	ko build github.com/sgargan/cert-scanner-darkly --tags $(VERSION) --base-import-paths -L
 	$(eval IMAGE:=$(KO_DOCKER_REPO)/cert-scanner-darkly:$(VERSION))
-	kind load docker-image --name cert-scanner $(IMAGE)
+	kind load docker-image --name vsm $(IMAGE)
 	$(call deploy)
 
 local-canary: VERSION=dev
