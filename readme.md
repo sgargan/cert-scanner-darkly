@@ -1,6 +1,6 @@
 # Cert-scanner-darkly
 
-A network scanner to monitor TLS enabled endpoints to check their certs for compliance to various vaidation rules. The scanner uses various discovery mechanisms to detect running target services. It will attempt to establish a TLS connnection to each each target it discovers. If a connection is established, the certificate gets extracted and various validations are applied like validity windows, tls versions, trust chain etc. Finally targets are passed through a series of reporters document the outcome of the scan and allow for violations to be actioned
+A network scanner to monitor TLS enabled endpoints to check their certs for compliance to various validation rules. The scanner uses various discovery mechanisms to detect running target services. It will attempt to establish a TLS connection to each target it discovers. If a connection is established, the certificate gets extracted and various validations are applied like validity windows, tls versions, trust chain etc. Finally targets are passed through a series of reporters to document the outcome of the scan and allow for violations to be actioned
 
 # Building
 
@@ -12,6 +12,18 @@ To run the test suite run `make tests` this will build and run a suite of unit t
 
 To build and deploy a new version to this cluster for testing run the target `make local-dev`. See canary below for an app that exposes a number of configuration violations.
 
+# Quick Deploy to Kubernetes
+
+With a Kubernetes cluster available and `helm` installed:
+
+```bash
+helm install cert-scanner ./charts/cert-scanner
+```
+
+Edit `charts/cert-scanner/values.yaml` to set your cluster name, namespaces to scan, and validations before deploying. To deploy a locally built image first run `make build` then `make deploy`.
+
+The scanner exposes a `/health` endpoint on port `9253` (used by liveness/readiness probes) and a `/metrics` endpoint for Prometheus scraping. Pod annotations are set to `prometheus.io/scrape: 'true'` by default.
+
 # Configuring and Running.
 
 The scanner takes it's configuration via a cli flag. Examples of the various configuration options can be found in the chart [values.yaml](charts/cert-scanner/values.yaml) or in [example/config.yaml](/example/config.yaml)
@@ -22,9 +34,17 @@ cert-scanner -c /path/to/cert-scanner-config.yaml
 
 The scanner can be run locally as above, but is most useful when deployed to run continually and the helm chart in the [charts](/charts/cert-scanner/) folder can be used to deploy the scanner into a kubernetes cluster. Configuration for the chart, to enable various validations and reporters is found in [values.yaml](charts/cert-scanner/values.yaml). This can be deployed into the current cluster via `make deploy`. The default configuration will scan for ready pods. It will attempt to establish a TLS connection.
 
+Configuration can also be provided via environment variables using the `CERT_SCAN_` prefix with dots replaced by underscores (e.g. `CERT_SCAN_DEBUG=true`, `CERT_SCAN_SCAN_INTERVAL=10m`).
+
+By default the scanner runs continuously on a configurable interval. To run once and exit, set `scan.repeated: false` in the config.
+
 # Architecture
 
 There are 4 distinct phases to a scan, currently each phase runs to completion before the next stage starts. Within each stage individual items are executed in parallel.
+
+## Canary
+
+The `canary` subcommand starts a local TLS server that deliberately exposes certificate violations, useful for testing that validations and reporters are working correctly. Configure its port via the `canary.port` config key.
 
 ## Discovery
 During the discovery phase, all of the configured discovery sources are queried for Targets to scan. Targets come in 2 flavors, an ip:port or a url, and each contains a source and a source type. Discoveries can add arbitrary labels to a target which can be used when reporting violations later.
@@ -61,7 +81,7 @@ File discovery loads static urls from host files, creating a Target for each url
 Once all the targets have been discovered, they each need to be processed. There is currently only a single processor in this phase and is used to connect to each target and extract tls state. The processor gets configured with a number of ciphers and tls versions. It iterates over the tls versions and for each appropriate cipher it will try to negotiate a connection to the target with each version/cipher pair and will extract the tls state from the connection, including the certificate into a result. If the Target cannot be connected to or fails a tls handshake then this is captured instead. Either way, the result of connecting to the Target using the version/cipher pair gets stored in the scan for validation/reporting.
 
 ## Validation
-Once all targets have been scanned and the results gathered they can be validated for rule violations. Validations get passed each Target and iterate over the contained results to validate their rule. There are 5 kinds of validation, each examining the TLS certificate extracted during the processing phase. If a validation fails it will add a number of labels to the result that will be used during reporting.
+Once all targets have been scanned and the results gathered they can be validated for rule violations. Validations get passed each Target and iterate over the contained results to validate their rule. There are 6 kinds of validation, each examining the TLS state extracted during the processing phase. If a validation fails it will add a number of labels to the result that will be used during reporting.
 
 ### NotYetValid
 Checks if the NotBefore date on the retrieved certificate is in the future. If so it raise a NotYetValidViolation tracking the not before date nd the time until the cert is valid as labels.
@@ -74,6 +94,12 @@ The version validation is configured with a min acceptable tls version. If the t
 
 ### Trust Chain
 The Trust Chain validation will check that trust chains of retrieved certs are valid. By default it will defer to the system bundle but can be configured to ignore this and use one or more CA bundles containing custom root CA certs. Each cert is validated using the configured CA bundles and will raise a violation if the full chain of trust for the cert cannot be verified. Violations will contain subject_cn, issuer cn and the authority key id.
+
+### Require TLS
+Checks that at least one successful TLS connection was established to the target. Raises a violation for targets where every connection attempt failed, meaning the endpoint is either not TLS or unreachable. Configured via `validations.require_tls.enabled`.
+
+### Cipher Suite
+Validates that the negotiated cipher suite is in a configured allowlist. Raises a violation for any connection that negotiates a disallowed cipher. Configured via `validations.cipher_suite.allowed_ciphers`.
 
 
 ## Reporting
@@ -95,17 +121,29 @@ If no path is specified then it will log to stdout which is useful when the scan
 
 ## Metrics
 
-There are a number of reporters that increment prometheus counter metrics for each violation, one for each validation type. These will emit the labels gathered when incrementing the counter
-
+There are a number of reporters that increment Prometheus counter metrics for each violation, one for each validation type. These will emit the labels gathered when incrementing the counter. All metrics are prefixed with `cert_scanner_`.
 
 ### NotYetValid
-NotYetValid violations increment a counter `certificate_not_yet_valid_validations_total`
+NotYetValid violations increment `cert_scanner_certificate_not_yet_valid_validations_total` with labels: `address`, `source`, `source_type`, `until_valid`, `not_before`, `not_before_date`.
 
 ### Expired
-Expiry violations increment a counter `certificate_expiry_validations_total`
+Expiry violations increment `cert_scanner_certificate_expiry_validations_total` with labels: `address`, `source`, `source_type`, `warning_duration`, `not_after`, `not_after_date`.
 
 ### TLS Version
-TLS Version violations increment a counter `tls_version_validations_total`
+TLS Version violations increment `cert_scanner_tls_version_validations_total` with labels: `address`, `source`, `source_type`, `detected_version`, `min_version`.
 
 ### Trust Chain
-Trust chain violations `trust_chain_validations_total`
+Trust chain violations increment `cert_scanner_trust_chain_validations_total` with labels: `address`, `source`, `source_type`, `subject_cn`, `issuer_cn`, `authority_key_id`.
+
+### Require TLS
+Require TLS violations increment `cert_scanner_require_tls_validations_total` with labels: `address`, `source`, `source_type`, `target_pod`, `target_namespace`.
+
+### Cipher Suite
+Cipher suite violations increment `cert_scanner_invalid_cipher_suite_total` with labels: `address`, `source`, `source_type`, `detected_cipher`.
+
+## Scan Stats
+
+The `scan_stats` reporter emits two additional metrics:
+
+- `cert_scanner_tls_version_total` — counter of detected TLS versions, labelled by `source`, `source_type`, `version`, `cypher`, `success`.
+- `cert_scanner_scan_duration_milliseconds` — histogram of scan duration per target, labelled by `source`, `source_type`, `success`.
