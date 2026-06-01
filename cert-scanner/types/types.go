@@ -74,7 +74,7 @@ func (n *UrlAddress) Connect(ctx context.Context) (net.Conn, error) {
 	if port == "" && (n.url.Scheme == "tls" || n.url.Scheme == "https") {
 		port = "443"
 	}
-	return dialer.DialContext(ctx, "tcp", fmt.Sprintf("%s:%s", n.url.Host, port))
+	return dialer.DialContext(ctx, "tcp", net.JoinHostPort(n.url.Hostname(), port))
 }
 
 // URLs shoud validate the hostname as part of the tls handshake
@@ -140,6 +140,22 @@ func (t *TargetScan) Failed() bool {
 		}
 	}
 	return false
+}
+
+func (t *TargetScan) ResultWithCertificates() *ScanResult {
+	if hasPeerCertificates(t.FirstSuccessful) {
+		return t.FirstSuccessful
+	}
+	for _, result := range t.Results {
+		if hasPeerCertificates(result) {
+			return result
+		}
+	}
+	return nil
+}
+
+func hasPeerCertificates(result *ScanResult) bool {
+	return result != nil && result.State != nil && len(result.State.PeerCertificates) > 0
 }
 
 // AddViolation adds a detected violation for one ScanResult to the target scan

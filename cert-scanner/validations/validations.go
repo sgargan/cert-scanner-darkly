@@ -29,13 +29,14 @@ func CreateValidations() (Validations, error) {
 
 func expiryValidation() (Validation, error) {
 	warning := DefaultWarningDuration
-	duration := viper.GetString(config.ValidationsExpiryWindow)
-	if duration != "" {
-		if parsed, err := time.ParseDuration(duration); err != nil {
+	if duration := viper.GetString(config.ValidationsExpiryWindow); duration != "" {
+		parsed, err := time.ParseDuration(duration)
+		if err != nil {
 			return nil, fmt.Errorf("error parsing expiry warning duration from %s", duration)
-		} else {
-			warning = parsed
 		}
+		warning = parsed
+	} else if duration := viper.GetDuration(config.ValidationsExpiryWindow); duration != 0 {
+		warning = duration
 	}
 	return CreateExpiryValidation(warning), nil
 }

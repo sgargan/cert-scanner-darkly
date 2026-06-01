@@ -20,13 +20,14 @@ func RunCanary(port int) {
 
 	// setup the cert to expire iminently
 	template := testutils.CreateLeafTemplate("some-server", serial)
-	template.NotAfter = time.Now()
+	template.NotAfter = time.Now().Add(-1 * time.Hour)
 
 	_, certPem, key, err := ca.CreateLeafFromTemplate(template)
 	failOnError("error creating certificate for server", err)
 
-	// create server with 1.1 config
+	// create server with 1.1 config to trigger tls_version violations
 	config := testutils.CreateTestTLSConfig(tls.VersionTLS11, certPem, key)
+	config.MaxVersion = tls.VersionTLS11
 	testutils.NewTestTlsServerWithHandler(config, port, handler)
 
 	fmt.Printf("Running canary on :%d\n", port)

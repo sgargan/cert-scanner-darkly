@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"regexp"
+
 	"strings"
 
+	"github.com/dlclark/regexp2"
 	. "github.com/sgargan/cert-scanner-darkly/types"
 	"golang.org/x/exp/slog"
 
@@ -40,7 +41,7 @@ type PodDiscovery struct {
 type parsedIgnorePattern struct {
 	pattern  string
 	jsonPath *jsonpath.JSONPath
-	matches  []*regexp.Regexp
+	matches  []*regexp2.Regexp
 }
 
 type IgnorePattern struct {
@@ -68,7 +69,8 @@ func CreatePodDiscovery(config PodDiscoveryConfig, pods PodsInterface) (*PodDisc
 		return nil, fmt.Errorf("no pods api has been provided")
 	}
 
-	config.ignorePatterns = append(config.ignorePatterns, IgnorePattern{Pattern: "{.metadata.name}", Match: []string{"cert-scanner"}})
+	config.ignorePatterns = append(config.ignorePatterns, IgnorePattern{Pattern: "{.metadata.name}",
+		Match: []string{`^cert-scanner-(?!canary).*$`}})
 	ignorePodPatterns, err := parseIgnorePatterns(config.ignorePatterns)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing ignore patterns: %v", err)
@@ -218,7 +220,7 @@ func ignore(pod *v1.Pod, patterns []parsedIgnorePattern) (bool, error) {
 
 				// Check if extracted value matches any of the specified match values
 				for _, matchValue := range pattern.matches {
-					if matchValue.MatchString(extractedValue) {
+					if matches, err := matchValue.MatchString(extractedValue); matches && err == nil {
 						slog.Debug("ignoring due to pattern match", "pod", pod.Name, "pattern", pattern.pattern, "value", extractedValue)
 						return true, nil
 					}
@@ -255,9 +257,9 @@ func parseIgnorePatterns(ignorePatterns []IgnorePattern) ([]parsedIgnorePattern,
 		if err != nil {
 			return nil, err
 		}
-		matches := make([]*regexp.Regexp, 0, len(pattern.Match))
+		matches := make([]*regexp2.Regexp, 0, len(pattern.Match))
 		for _, match := range pattern.Match {
-			matches = append(matches, regexp.MustCompile(match))
+			matches = append(matches, regexp2.MustCompile(match, regexp2.None))
 		}
 		parsedPatterns = append(parsedPatterns, parsedIgnorePattern{
 			pattern:  pattern.Pattern,

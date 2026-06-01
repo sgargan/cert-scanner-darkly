@@ -3,7 +3,7 @@ replicaCount: 1
 
 canaryConfig:
   canary:
-    port: 9253
+    port: 8080
 
 image:
   url: docker.io/stevegargan/cert-scanner-canary-darkly
