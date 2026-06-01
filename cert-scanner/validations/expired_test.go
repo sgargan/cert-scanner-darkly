@@ -7,6 +7,7 @@ import (
 
 	"github.com/sgargan/cert-scanner-darkly/testutils"
 	. "github.com/sgargan/cert-scanner-darkly/testutils"
+	. "github.com/sgargan/cert-scanner-darkly/types"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -34,6 +35,34 @@ func (t *ExpiryValidationTests) TestWillExpireInNDays() {
 	result := CreateTestTargetScan().WithCertificates(&cert.Certificate).Build()
 	t.ErrorContains(CreateExpiryValidation(7*day).Validate(result), "cert will expire in less than 168h0m0s on ")
 }
+
+func (t *ExpiryValidationTests) TestAlreadyExpired() {
+	cert := CreateTestCert().WithAfter(time.Now().Add(-1 * day))
+	result := CreateTestTargetScan().WithCertificates(&cert.Certificate).Build()
+	t.ErrorContains(CreateExpiryValidation(7*day).Validate(result), "cert expired on ")
+}
+
+func (t *ExpiryValidationTests) TestAlreadyExpiredFromFailedConnection() {
+	cert := CreateTestCert().WithAfter(time.Now().Add(-1 * day))
+	scan := CreateTestTargetScan().WithCertificates(&cert.Certificate).WithError(&testScanError{}).Build()
+	scan.FirstSuccessful = nil
+	t.Nil(scan.FirstSuccessful)
+	t.NotNil(scan.ResultWithCertificates())
+	t.ErrorContains(CreateExpiryValidation(7*day).Validate(scan), "cert expired on ")
+}
+
+func (t *ExpiryValidationTests) TestCertExpiredOrExpiringSoon() {
+	now := time.Now()
+	t.True(certExpiredOrExpiringSoon(now, now.Add(-24*time.Hour), 7*day))
+	t.True(certExpiredOrExpiringSoon(now, now.Add(24*time.Hour), 7*day))
+	t.False(certExpiredOrExpiringSoon(now, now.Add(8*day), 7*day))
+}
+
+type testScanError struct{}
+
+func (e *testScanError) Error() string   { return "scan failed" }
+func (e *testScanError) Labels() map[string]string { return map[string]string{"type": "test"} }
+func (e *testScanError) Result() *ScanResult       { return nil }
 
 func (t *ExpiryValidationTests) TestLabels() {
 	cert, _, _, err := t.ca.CreateLeafCert("somehost")

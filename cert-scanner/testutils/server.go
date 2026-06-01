@@ -25,7 +25,7 @@ func NewTestTlsServer(config *tls.Config, port int) *TestTlsServer {
 }
 
 func NewTestTlsServerWithHandler(config *tls.Config, port int, handler http.HandlerFunc) *TestTlsServer {
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		panic(err)
 	}

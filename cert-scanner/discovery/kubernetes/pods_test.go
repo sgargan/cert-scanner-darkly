@@ -220,16 +220,20 @@ func (t *PodTests) TestIgnoresPodsWithUnreadyContainers() {
 	t.Equal(0, len(targets))
 }
 
-func (t *PodTests) TestIgnoresScanner() {
+func (t *PodTests) TestIgnoresScannerButNotCanary() {
 	os.Setenv(ScannerPodEnvName, "cert-scanner-12345fed")
 	t.AddPods("cert-scanner-1234abcd", "some-namespace", map[string]string{},
 		v1.PodIP{IP: "10.0.1.1"}, createContainerPort(8080),
 	)
 
+	t.AddPods("cert-scanner-canary-1234abcd", "some-namespace", map[string]string{},
+		v1.PodIP{IP: "10.0.1.2"}, createContainerPort(8080),
+	)
+
 	podDiscovery, _ := CreatePodDiscovery(t.config, t.Build())
 	targets := make(chan *Target, 2)
 	t.NoError(podDiscovery.Discover(context.Background(), targets))
-	t.Equal(0, len(targets))
+	t.Equal(1, len(targets))
 }
 
 func createContainerPort(port int32) v1.ContainerPort {

@@ -31,6 +31,9 @@ func (e *ExpiryValidationError) Result() *ScanResult {
 }
 
 func (e *ExpiryValidationError) Error() string {
+	if time.Now().After(e.notAfter) {
+		return fmt.Sprintf("cert expired on %s", e.notAfter.Format(time.RFC822))
+	}
 	return fmt.Sprintf("cert will expire in less than %s on %s", e.warningDuration.String(), e.notAfter.Format(time.RFC822))
 }
 
@@ -50,17 +53,28 @@ func CreateExpiryValidation(warningDuration time.Duration) *ExpiryValidation {
 }
 
 // Validate will examine the cert from the first successful ScanResult in a TargetScan
-// and check that it's not within the configured time warning window before expiry. If the cert
-// expiry falls in the the warning window, this validation will fail and raise a validation error
+// and check that it is not already expired and not within the configured warning window
+// before expiry. If either condition is met, this validation will fail.
 func (v *ExpiryValidation) Validate(scan *TargetScan) ScanError {
 	slog.Debug("validating cert of target will not expire soon", "target", scan.Target.Name, "warning_duration", v.warningDuration.String())
-	if !scan.Failed() {
-		result := scan.FirstSuccessful
-		for _, cert := range result.State.PeerCertificates {
-			if time.Until(cert.NotAfter) < v.warningDuration {
-				return CreateExpiryValidationError(v.warningDuration, cert.NotAfter, result)
-			}
+	result := scan.ResultWithCertificates()
+	if result == nil {
+		slog.Debug("no peer certificates found in scan result", "target", scan.Target.Name)
+		return nil
+	}
+
+	now := time.Now()
+	for _, cert := range result.State.PeerCertificates {
+		if certExpiredOrExpiringSoon(now, cert.NotAfter, v.warningDuration) {
+			return CreateExpiryValidationError(v.warningDuration, cert.NotAfter, result)
 		}
 	}
 	return nil
+}
+
+func certExpiredOrExpiringSoon(now, notAfter time.Time, warningDuration time.Duration) bool {
+	if now.After(notAfter) {
+		return true
+	}
+	return notAfter.Sub(now) < warningDuration
 }

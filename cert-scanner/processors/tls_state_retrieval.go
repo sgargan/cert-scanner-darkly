@@ -88,15 +88,14 @@ func (c *TLSStateRetrieval) makeConnectionWithConfig(ctx context.Context, result
 
 func getConfig(target *Target, cipher, version uint16) *tls.Config {
 	config := &tls.Config{
-		CipherSuites: []uint16{cipher},
-		MaxVersion:   version,
-		MinVersion:   version,
+		CipherSuites:       []uint16{cipher},
+		MaxVersion:         version,
+		MinVersion:         version,
+		InsecureSkipVerify: true,
 	}
 
 	if target.Address.ValidateHostname() {
 		config.ServerName = target.Address.String()
-	} else {
-		config.InsecureSkipVerify = true
 	}
 	return config
 }

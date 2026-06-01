@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"regexp"
 	"testing"
 
 	"github.com/sgargan/cert-scanner-darkly/config"
@@ -37,9 +36,9 @@ func (t *DiscoveryTests) TestDiscoveryLoadsConfig() {
 	t.Equal([]string{"foo", "bar"}, discovery.labelKeys)
 	t.Len(discovery.ignorePatterns, 2)
 	t.Equal("{.metadata.name}", discovery.ignorePatterns[0].pattern)
-	t.Equal(regexp.MustCompile("some-pod"), discovery.ignorePatterns[0].matches[0])
+	t.Equal("some-pod", discovery.ignorePatterns[0].matches[0].String())
 	t.Equal("{.metadata.name}", discovery.ignorePatterns[1].pattern)
-	t.Equal(regexp.MustCompile("cert-scanner"), discovery.ignorePatterns[1].matches[0])
+	t.Equal(`^cert-scanner-(?!canary).*$`, discovery.ignorePatterns[1].matches[0].String())
 }
 
 func TestDiscoveryTests(t *testing.T) {

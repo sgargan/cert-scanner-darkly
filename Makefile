@@ -36,7 +36,7 @@ local-dev: KO_DOCKER_REPO=ko.local
 local-dev:
 	ko build github.com/sgargan/cert-scanner-darkly --tags $(VERSION) --base-import-paths -L
 	$(eval IMAGE:=$(KO_DOCKER_REPO)/cert-scanner-darkly:$(VERSION))
-	kind load docker-image --name vsm $(IMAGE)
+	kind load docker-image --name cert-scanner $(IMAGE)
 	$(call deploy)
 
 local-canary: VERSION=dev
@@ -75,6 +75,6 @@ deploy:
 define deploy
 	$(eval URL:=$(KO_DOCKER_REPO)/cert-scanner-darkly)
 	{ kubectl create namespace ${NAMESPACE} || true ;}
-	helm upgrade --install -n ${NAMESPACE} $(CHART) charts/$(CHART) --values charts/cert-scanner/values.yaml --set image.url=$(URL) --set image.tag=$(VERSION) --set image.pullPolicy=Never
+	helm upgrade --install -n ${NAMESPACE} $(CHART) charts/$(CHART) --values charts/$(CHART)/values.yaml --set image.url=$(URL) --set image.tag=$(VERSION) --set image.pullPolicy=Never
 	kubectl rollout restart deployment -n ${NAMESPACE} $(CHART)
 endef

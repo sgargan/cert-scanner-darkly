@@ -1,6 +1,7 @@
 module github.com/sgargan/cert-scanner-darkly
 
 require (
+	github.com/dlclark/regexp2 v1.12.0
 	github.com/prometheus/client_golang v1.21.0
 	github.com/prometheus/client_model v0.6.1
 	github.com/spf13/cobra v1.9.1

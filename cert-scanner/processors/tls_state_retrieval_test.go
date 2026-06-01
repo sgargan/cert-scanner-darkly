@@ -60,6 +60,43 @@ func (t *CertScannerTests) TestConnectionError() {
 	t.ValidateError(results[0], ConnectionError)
 }
 
+func (t *CertScannerTests) TestScanExpiredCert() {
+	const port = 33335
+	target := &Target{
+		Address: getAddress(fmt.Sprintf("127.0.0.1:%d", port)),
+	}
+	err := testutils.WithTestServerFromConfig(expiredCertTLSConfig(tls.VersionTLS12), port, func(_ *testutils.TestTlsServer) error {
+		scans := t.runScan(target)
+		t.Require().Len(scans, 1)
+		scan := scans[0]
+		t.Require().NotNil(scan.FirstSuccessful)
+		r := scan.FirstSuccessful
+		t.NotNil(r.State)
+		t.Require().Len(r.State.PeerCertificates, 1)
+		t.True(r.State.PeerCertificates[0].NotAfter.Before(time.Now()))
+		return nil
+	})
+	t.NoError(err)
+}
+
+func expiredCertTLSConfig(tlsVersion uint16) *tls.Config {
+	ca, err := testutils.CreateTestCA(0)
+	if err != nil {
+		panic(err)
+	}
+	serialNumber, err := testutils.CreateSerialNumber()
+	if err != nil {
+		panic(err)
+	}
+	template := testutils.CreateLeafTemplate("localhost", serialNumber)
+	template.NotAfter = time.Now().Add(-24 * time.Hour)
+	_, certPem, key, err := ca.CreateLeafFromTemplate(template)
+	if err != nil {
+		panic(err)
+	}
+	return testutils.CreateTestTLSConfig(tlsVersion, certPem, key)
+}
+
 func (t *CertScannerTests) TestHandshakeError() {
 	go func() {
 		http.ListenAndServe("127.0.0.1:33334", nil)
